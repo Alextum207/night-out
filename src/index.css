@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  background: #0b1220;
+  color: #e5e7eb;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Dark map for the projector; markers stay in colour. */
+.map-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9);
+}
+.leaflet-container {
+  background: #0f172a;
+}
+@keyframes pulse-ring {
+  0%, 100% { stroke-width: 2; stroke-opacity: 1; }
+  50% { stroke-width: 14; stroke-opacity: 0.25; }
+}
+.pulse {
+  animation: pulse-ring 1.6s ease-in-out infinite;
+}
