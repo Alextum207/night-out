@@ -1,0 +1,207 @@
+# Lovable Prompt – "SafeRide Munich"
+
+Build a mobile-first web app (PWA) called **SafeRide Munich**. It helps people in Munich get home safely at night by showing where large, drunk groups are, routing them around those groups via public transport (MVG/MVV), and offering a one-tap **Panic Mode** that gets them out of their current train/bus/tram and onto a new connection immediately.
+
+Build it in the phases listed at the bottom. Finish and verify each phase before starting the next.
+
+---
+
+## 1. Tech stack
+
+- React + TypeScript + Vite + Tailwind + shadcn/ui
+- **MapLibre GL JS** for the map (WebGL – we need to render hundreds of moving vehicles smoothly; do NOT use Leaflet markers)
+- **Supabase**: Postgres, anonymous auth, Realtime (live report updates), Edge Functions (API proxies + secrets)
+- PWA: installable, works full-screen on iOS/Android, requests geolocation permission
+- UI language: English only. All labels, buttons, messages and onboarding text are in English (station and line names stay as they are, e.g. "Sendlinger Tor").
+
+## 2. Basemap
+
+Use the Esri World Light Gray Canvas raster tiles as a MapLibre raster source:
+
+```
+https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}
+```
+
+- Attribution: "Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors"
+- Add a dark variant for night use (`World_Dark_Gray_Base` from the same server). Auto-switch to dark between 20:00 and 06:00, with a manual override.
+- Initial view: Munich center (48.137, 11.575), zoom 12. Restrict panning roughly to the MVV area.
+
+## 3. External data sources
+
+All calls with secrets or CORS problems go through Supabase Edge Functions. Never put the BestTime key in the frontend.
+
+### 3.1 MVG API (unofficial, no auth) – routing, stations, departures
+Base URL: `https://www.mvg.de/api/bgw-pt/v3`
+
+Create edge function `mvg-proxy` that forwards these endpoints and returns JSON:
+- `GET /locations?query=...` – station/address search (for the From/To inputs)
+- `GET /stations/nearby?latitude=..&longitude=..` – nearest stations
+- `GET /departures?globalId=...` – live departures incl. delays
+- `GET /routes?originStationGlobalId=..&destinationStationGlobalId=..&routingDateTime=<ISO UTC .000Z>` – also supports `originLatitude/originLongitude/destinationLatitude/destinationLongitude` instead of station IDs (important for Panic Mode)
+- `GET /lines` – list of lines
+- `GET /messages` – service disruptions
+
+Cache `/lines` and `/locations` responses for 1 h. Add a 10 s timeout and a friendly error state ("MVG is currently unavailable").
+
+### 3.2 BestTime.app – predicted nightlife crowds
+Edge function `besttime-proxy`, secret `BESTTIME_API_KEY_PRIVATE`.
+- Use the **Venue Filter** endpoint to fetch bars, clubs and pubs in Munich with their busyness for the current hour (0–100, plus live value where available).
+- Store results in table `venue_busyness` and only refresh once per hour (cron or on-demand if older than 60 min). Keep API credit usage low.
+
+### 3.3 geOps Realtime – live vehicle positions
+WebSocket: `wss://api.geops.io/tracker-ws/v1/?key=<GEOPS_API_KEY>`
+- Subscribe with a bounding box of the current map view + zoom level.
+- Vehicles come as trajectories in EPSG:3857 – convert to lng/lat.
+- `GET full_trajectory_<train_id>` and `GET stopsequence_<train_id>` give a vehicle's path and upcoming stops.
+- S-Bahn positions are real GPS; U-Bahn/tram/bus are timetable-based estimates. Show a small "estimated" badge for non-S-Bahn vehicles.
+- **Fallback if no key / connection fails:** simulate vehicle positions by interpolating between stops using scheduled times + delays from MVG `/departures`. Build this behind the same interface (`VehicleProvider`) so we can switch sources.
+
+### 3.4 Static transit network (lines + stations)
+- Load line geometries from `/public/data/lines.geojson` (FeatureCollection of LineStrings, properties: `line` e.g. "U3", `mode` one of `UBAHN|SBAHN|TRAM|BUS|METROBUS`, `color` hex).
+- Load stations from `/public/data/stations.geojson` (Points, properties: `globalId`, `name`, `modes`).
+- We will replace these with full data generated from the MVG/MVV GTFS feeds. For now, create realistic placeholder files containing at least U3, U6, S1, S8, Tram 27 and MetroBus 53 so everything can be built and tested.
+- Line colors: use official MVG/S-Bahn colors in a single `lineColors.ts` constant.
+
+## 4. Database (Supabase)
+
+Enable anonymous sign-in so every device has a user ID without registration.
+
+**reports**
+- `id` uuid pk, `user_id` uuid, `lat` float, `lng` float
+- `type` enum: `group` | `panic`
+- `group_size` enum: `small` (5–10) | `medium` (10–25) | `large` (25+)
+- `intensity` enum: `loud` | `aggressive` | `harassing`
+- `location_context` enum: `street` | `station` | `on_vehicle`
+- `station_global_id` text nullable, `line` text nullable (e.g. "U3" if on a vehicle)
+- `note` text nullable (max 140 chars)
+- `created_at` timestamptz, `expires_at` timestamptz (default created_at + 45 min)
+- `confirmations` int default 0
+
+**report_confirmations** – `report_id`, `user_id`, `type` (`still_there` | `gone`), unique per user+report. 2× "gone" expires the report immediately; each "still_there" extends `expires_at` by 20 min.
+
+**events** – manually entered big events (football at Allianz Arena, concerts at Olympiahalle, Oktoberfest, Starkbierfest): `name`, `lat`, `lng`, `starts_at`, `ends_at`, `expected_size`, `affected_lines` text[].
+
+**venue_busyness** – BestTime cache: `venue_id`, `name`, `lat`, `lng`, `busyness_now` int, `busyness_live` int nullable, `fetched_at`.
+
+**panic_events** – `id`, `user_id`, `lat`, `lng`, `detected_line` nullable, `created_at`. (Analytics only, never shown with user identity.)
+
+RLS: anyone can read active reports (`expires_at > now()`); users can only insert/update their own rows. Rate-limit report creation to 1 per 2 min per user (DB function or edge function check). Enable Realtime on `reports`.
+
+## 5. Map layers
+
+All layers are toggleable in the filter panel.
+
+1. **Crowd reports** – circles sized by `group_size`, colored by `intensity` (yellow → orange → red). Opacity fades as the report approaches `expires_at`. Tap → bottom sheet with details, age ("12 min ago"), and "Still there" / "Gone" buttons.
+2. **Panic pins** – small distinct marker, only shown for 15 min, no details.
+3. **Nightlife heat** – heatmap layer from `venue_busyness` (weight = busyness).
+4. **Events** – icon markers for active/upcoming events (next 3 h).
+5. **Transit lines** – colored lines from `lines.geojson`, drawn under vehicles.
+6. **Stations** – small dots, larger at higher zoom; a station within 250 m of an active report gets a red warning ring.
+7. **Live vehicles** – circles with line label (e.g. "U3"), colored by line, rotated by heading, smoothly animated between updates. Vehicles currently passing through a hotspot get a red outline.
+
+## 6. Filter panel
+
+A bottom sheet / side drawer with:
+- **Mode chips**: U-Bahn, S-Bahn, Tram, Bus, MetroBus (multi-toggle, applies to lines AND vehicles)
+- **Line multi-select** with search (e.g. pick only U3 + U6)
+- Quick filters:
+  - "Only my route" – show only lines on the currently selected route
+  - "Near me" – only lines with a station within 1 km of the user
+  - "Through hotspots" – only lines/vehicles currently passing near active reports
+- Layer toggles for reports, nightlife heat, events, stations, vehicles
+- Report time window: last 15 / 30 / 60 min
+- Persist filter state in localStorage
+
+## 7. Reporting flow (must take ≤ 3 taps)
+
+- Floating "Report" button.
+- Location defaults to current GPS position (draggable pin to adjust).
+- Step 1: group size (3 big buttons). Step 2: intensity (3 big buttons). Optional: "I'm on a vehicle" toggle → pick line from nearby lines (auto-suggest from detected vehicle, see Panic Mode). Optional note.
+- Submit → optimistic update on the map, then realtime sync to everyone.
+
+## 8. Safe routing
+
+- From/To inputs with autocomplete via `mvg-proxy /locations`. "From" defaults to current location. Save up to 3 favorite destinations ("Home", etc.).
+- Request routes from MVG for "now" and also +10 and +20 min to get more alternatives.
+- **Hotspot score** for each route:
+  - For every stop, transfer station and leg geometry, find active reports within 300 m (stations) or on the same `line` (on-vehicle reports).
+  - Weight: size (small 1, medium 2, large 4) × intensity (loud 1, aggressive 2, harassing 3) × recency (linear decay to 0 at expiry) × confirmations bonus.
+  - Add nightlife heat near transfer stations and active events on affected lines.
+  - Map to a label: "Calm" (green), "Busy" (yellow), "Avoid" (red).
+- **Occupancy score ("sweet spot")** for each route – the goal is a connection that is neither empty (isolated, nobody around to help) nor packed (crowds, drunk groups):
+  - Use the `occupancy` field from MVG departure/route data where present (LOW / MEDIUM / HIGH). If missing, estimate it from: time of day and weekday, line type (S-Bahn/U-Bahn trunk lines busier than outer buses), BestTime busyness near the stations, and active events on the line.
+  - Score each leg on a curve: MEDIUM = best, LOW = penalty (stronger after 23:00), HIGH = penalty (stronger if reports/events are nearby). Show it per leg as a small icon: "Quiet", "Moderate", "Crowded".
+  - Also penalize: long waits (> 8 min) on a platform with low occupancy, and walking legs > 400 m at night.
+- **Combined safety score** (0–100, 100 = safest): normalize both scores to 0–100, then combine hotspot score (weight 0.6) + occupancy score (weight 0.4). Keep both weights in one config constant so we can tune them.
+- Sort by: combined safety score first, but show duration difference ("+6 min, avoids Sendlinger Tor, moderately busy").
+- Route detail view: legs with line colors, departure times + live delays, which hotspots are avoided, and the route drawn on the map.
+- While a route is active: if a new report appears on the remaining path, show a banner "New report on your route – show alternative?"
+
+## 9. Panic Mode (core feature)
+
+A large, always-visible red **PANIC** button (bottom right, thumb-reachable). One tap triggers it immediately; show a 5-second "Undo" toast afterwards rather than a confirmation dialog beforehand.
+
+On trigger:
+1. **Drop a pin** at the current GPS position → insert into `reports` (`type = panic`) and `panic_events`. Anonymous.
+2. **Detect current means of transport** from the on-device GPS track:
+   - Continuously keep the last 3 minutes of positions in memory (`watchPosition`, high accuracy) while the app is open. Never upload the track.
+   - Speed < 6 km/h → walking/standing. Speed > 15 km/h → in a vehicle.
+   - If in a vehicle: match the track against live vehicles from the `VehicleProvider` (nearest vehicle within 150 m with similar heading over the last 60 s) → gives line + direction + next stop.
+   - Fallback: match the track to the nearest line geometry in `lines.geojson`.
+   - If still uncertain: show a one-tap quick-select of the 3 most likely lines ("Are you on the U3 towards Moosach?").
+3. **Compute the escape route:**
+   - Determine the next stop of the current vehicle (from stop sequence or nearest upcoming station on the line in direction of travel).
+   - Request routes from that next stop to the user's destination (active route destination or "Home" favorite; otherwise ask once with favorites as big buttons), with `routingDateTime` = estimated arrival at the next stop.
+   - Exclude any route that continues on the same line/vehicle.
+   - Hard-exclude any route that passes a station or line with an active report within 300 m, the user's own panic pin, or another panic pin from the last 15 min.
+   - Rank the remaining routes by the **combined safety score** from section 8, so the escape connection is neither empty nor overcrowded ("Moderate" occupancy preferred), with short waits and short walks.
+   - Speed still matters: among routes within 10 points of the best safety score, pick the one that gets the user off the current vehicle and onto the new connection fastest.
+   - If no route passes the hard exclusions, show the best remaining one with a clear warning and the "Call 110" button highlighted.
+   - If the user is not in a vehicle: route from the current position with the same rules, avoiding the nearest hotspot.
+   - On the panic screen, show why this route was chosen in one line ("Moderately busy tram, no reports on the way, 3 min wait").
+4. **Panic screen** (full-screen, high contrast, huge text):
+   - "Get off at: **Implerstraße** (in ~2 min)"
+   - "Then take **Tram 27** towards X at 23:41, platform Y"
+   - Map preview with the exit station and new route
+   - Buttons: "Call 110" (tel: link), "Share location" (Web Share API with a Google Maps link to the current position), "Other connection"
+   - Calm wording, no flashing animations.
+
+## 10. Demo mode (important for the pitch)
+
+Settings toggle "Demo mode":
+- Seeds ~15 realistic fake reports around Sendlinger Tor, Hauptbahnhof, Münchner Freiheit, Ostbahnhof and Stachus, plus one active event (FC Bayern home match).
+- Simulates a GPS ride on the U3 from Odeonsplatz towards Moosach, so Panic Mode can be demoed live without riding the train.
+- Uses simulated vehicles if the geOps key is missing.
+
+## 11. Privacy & safety
+
+- GPS track stays on the device, only report pins are stored.
+- No accounts, no names, no photos.
+- Reports expire automatically; the map shows an "Updated X min ago" timestamp.
+- Onboarding screen (2 slides): what the app does, that reports are anonymous, and that in real danger you should call 110.
+- Short note: "Reports come from users and may be inaccurate."
+
+## 12. UI / design
+
+- Mobile-first, one-handed use, large touch targets (min 48 px).
+- Bottom navigation: Map · Route · Report · Settings; the PANIC button floats above everything.
+- Calm, neutral palette that lets the gray map and colored transit lines carry the color; red is reserved for danger and the panic button.
+- Accessible contrast in both light and dark mode.
+
+## 13. Build order
+
+1. **Phase 1:** Project setup, MapLibre with Esri gray basemap (light/dark), placeholder `lines.geojson` / `stations.geojson` rendered with line colors, filter panel for modes/lines.
+2. **Phase 2:** Supabase schema + anonymous auth, reporting flow, live report layer with realtime + expiry + confirmations, demo seed data.
+3. **Phase 3:** `mvg-proxy` edge function, route search, hotspot + occupancy scoring, route display, "new report on route" banner.
+4. **Phase 4:** `VehicleProvider` with geOps WebSocket + simulated fallback, live vehicle layer with filters.
+5. **Phase 5:** Panic Mode (GPS buffer, vehicle detection, escape routing, panic screen), demo ride simulation.
+6. **Phase 6:** BestTime nightlife heat layer + events layer, onboarding, polish.
+
+## 14. Acceptance criteria
+
+- Map loads in < 3 s on mobile, stays smooth with 300+ vehicles.
+- A report appears on a second device within 2 s.
+- Routing Marienplatz → Münchner Freiheit returns ≥ 3 options with hotspot labels.
+- In demo mode, pressing PANIC during the simulated U3 ride shows the next exit station and a different-line connection within 3 s, and that connection avoids every seeded report and is not rated "Quiet" or "Crowded" if a "Moderate" option exists.
+- Toggling "U-Bahn" off hides all U-Bahn lines and vehicles immediately.
+- Secrets (`BESTTIME_API_KEY_PRIVATE`, `GEOPS_API_KEY`) are stored as Supabase secrets, never committed.
