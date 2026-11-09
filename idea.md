@@ -155,7 +155,7 @@ This file is the single source of decisions for the sprint. Exception to AGENTS.
 | `tap` | rider → control | Sent again on every chip change with the same sessionId. Control upserts it into `Map<sessionId, Tap>`. (There is no separate `reasons` event.) |
 | `fine` | rider → control | Removes the session's tap. |
 | `action` | control → rider | `target = {trainKey} \| {sessionId}`, kind (security / announce / extraTrain / resolved), stationId (= the card's `nextStop`), text, steps[]. |
-| `demo` | control → riders | scenario, the whole route, `virtualNow`. A phone jumps from any screen into Riding. `virtualNow` is an offset that keeps ticking after it is received. |
+| `demo` | control → riders | scenario, the whole route, `virtualNow`, `reset`, optional `to` (catch-up reply). With `reset`, a phone jumps from any screen into Riding. **Changed during the build:** the scenario clock is **frozen** and only moves with ±1 Min in the demo panel, so the train cannot drive past Münchner Freiheit during the pitch. |
 | `hello` | rider → control | On subscribe and on `visibilitychange`. Control resends the current `demo` and the last `action` for that trainKey/session. This is how phones that were locked or reloaded catch up. |
 
 **Hotspots**
@@ -178,6 +178,8 @@ This file is the single source of decisions for the sprint. Exception to AGENTS.
 - If the OSM tiles are offline, the map stays blank. The polyline and dots stay visible.
 
 **Answers to §11**: a hotspot needs ≥ 3 distinct sessions in 5 min, and one phone cannot trigger it alone. Rate limiting is production-only. Who acts at night and whether women would use the app remain open and will be validated with MVG and in interviews.
+
+**Build notes**: `Route = { legs[] }` (one leg per vehicle, so real trips with a change work). "Szenario beenden" in the demo panel switches back to live mode for real trips. Tests: `npm run check` (selfcheck), `npm run smoke` (live MVG), `npm run e2e` (full demo + 2 real trips, installed Chrome, headless).
 
 **Build**: 10 issues as sub-issues of a `wayfinder:map` issue, labelled `wayfinder:task`, with native GitHub dependencies. Issue 1 blocks 2/3/4/6. The rule tables (position, options + copy, action texts, selfcheck cases) are acceptance criteria in the issues.
 

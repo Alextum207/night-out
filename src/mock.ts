@@ -13,11 +13,11 @@ const stopById = (r: Route, id: string): Stop =>
 const arenaRoute = route(arena) // U6 Fröttmaning -> Sendlinger Tor, after the match
 const garchingRoute = route(garching) // U6 Garching-Forschungszentrum -> Münchner Freiheit -> U3 Marienplatz, ~00:46
 
-export const SNAPSHOTS: Record<ScenarioId, { label: string; route: Route; virtualNow: number }> = {
+export const SNAPSHOTS: Record<ScenarioId, { label: string; route: Route; virtualNow: number; nextTrainMin: number }> = {
   // On the train, just past Dietlindenstraße; next stop Münchner Freiheit.
-  arena: { label: 'Arena (U6 nach dem Spiel)', route: arenaRoute, virtualNow: stopById(arenaRoute, 'de:09162:510').dep + 10_000 },
+  arena: { label: 'Arena (U6 nach dem Spiel)', route: arenaRoute, virtualNow: stopById(arenaRoute, 'de:09162:510').dep + 10_000, nextTrainMin: 4 },
   // Alone on the platform, 4 min before the night U6 leaves.
-  garching: { label: 'Garching (nachts allein am Bahnsteig)', route: garchingRoute, virtualNow: garchingRoute.legs[0].stops[0].dep - 4 * 60_000 },
+  garching: { label: 'Garching (nachts allein am Bahnsteig)', route: garchingRoute, virtualNow: garchingRoute.legs[0].stops[0].dep - 4 * 60_000, nextTrainMin: 20 },
 }
 
 // Offline autocomplete: every stop from the snapshots.
@@ -66,7 +66,7 @@ export const directions = (stationId: string) => DIRECTIONS[stationId] ?? [
 ]
 
 // Simulated occupancy per car (MVG has no live wagon-level data; see idea.md §11).
-export const emptiestCar = (line: string) => (line === 'U6' ? 'vorderste' : 'hinterste')
+export const emptiestCar = (line: string) => (line === 'U6' ? 'vordersten' : 'hintersten')
 
 export type CityEvent = { name: string; venue: string; ends: string; lines: string[] }
 export const EVENTS: CityEvent[] = [

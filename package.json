@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host",
     "check": "tsx src/selfcheck.ts",
-    "smoke": "tsx scripts/live-smoke.ts"
+    "smoke": "tsx scripts/live-smoke.ts",
+    "e2e": "tsx scripts/e2e.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
@@ -25,6 +26,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "playwright-core": "^1.65.0",
     "tsx": "^4.23.15",
     "typescript": "~7.0.2",
     "vite": "^8.3.7"

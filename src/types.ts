@@ -64,7 +64,8 @@ export type Action = {
   at: number
 }
 
-export type DemoPayload = { scenario: ScenarioId; route: Route; virtualNow: number }
+// reset: riders go back to Riding (new scenario). to: only that session (catch-up reply to `hello`).
+export type DemoPayload = { scenario: ScenarioId; route: Route; virtualNow: number; reset: boolean; to?: string }
 
 export type Hotspot = {
   trainKey: string
