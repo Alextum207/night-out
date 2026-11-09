@@ -58,6 +58,32 @@ import type { Route, Stop } from './types'
 }
 
 // --- hotspots (issue #7) ---
+import { groupTaps } from './hotspots'
+import type { Tap } from './types'
+{
+  const M = 60_000
+  const tap = (sessionId: string, at: number, reasons: string[] = [], trainKey = 'U6|X|1'): Tap => ({
+    sessionId, trainKey, line: 'U6', destination: 'X', state: 'train', nextStopId: 'mf', nextStopName: 'MF', lat: 48, lng: 11, reasons, at,
+  })
+  const map = (...ts: Tap[]) => new Map(ts.map((t) => [t.sessionId, t])) // upsert by sessionId, like Control
+  const now = 100 * M
+  let g = groupTaps(map(tap('a', now - M), tap('b', now)), now)
+  assert.deepEqual([g.hotspots.length, g.singles.length, g.singles[0].sessions], [0, 1, 2]) // 2 sessions = single card
+  g = groupTaps(map(tap('a', now - 4 * M, ['Betrunkene Gruppe']), tap('b', now - M, ['Zu voll']), tap('c', now, ['Betrunkene Gruppe'])), now)
+  assert.deepEqual([g.hotspots.length, g.hotspots[0].sessions, g.hotspots[0].topReason], [1, 3, 'Betrunkene Gruppe'])
+  g = groupTaps(map(tap('a', now - 6 * M), tap('b', now - 3 * M), tap('c', now)), now) // spread over 6 min
+  assert.deepEqual([g.hotspots.length, g.singles[0].sessions], [0, 2])
+  g = groupTaps(map(tap('a', now - 2 * M), tap('a', now - M), tap('a', now)), now) // one phone tapping 3x
+  assert.deepEqual([g.hotspots.length, g.singles[0].sessions], [0, 1])
+  g = groupTaps(map(tap('a', now - 5 * M), tap('b', now), tap('c', now)), now) // exactly 5:00 old still counts
+  assert.equal(g.hotspots.length, 1)
+  g = groupTaps(map(tap('a', now - 5 * M - 1), tap('b', now), tap('c', now)), now)
+  assert.equal(g.hotspots.length, 0)
+  g = groupTaps(map(tap('a', now, ['Zu voll']), tap('b', now, ['Belästigung'])), now) // tie -> first seen
+  assert.equal(g.singles[0].topReason, 'Zu voll')
+  g = groupTaps(map(tap('a', now), tap('b', now, [], 'U3|Y|2')), now) // different trains = separate cards
+  assert.equal(g.singles.length, 2)
+}
 
 assert.ok(true)
 console.log('selfcheck ok')
