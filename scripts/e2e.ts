@@ -20,7 +20,8 @@ const step = (s: string) => console.log(`✓ ${s}`)
 const ms = async (f: () => Promise<unknown>) => { const t = Date.now(); await f(); return Date.now() - t }
 
 try {
-  const control = await open('#/control?demo')
+  const control = await open('#/control')
+  await control.evaluate(() => { location.hash = '#/control?demo' }) // panel must also open when ?demo is added later
   await control.setViewportSize({ width: 1600, height: 900 })
   const riders = [await open('#/rider', true), await open('#/rider', true), await open('#/rider', true)]
   await riders[0].getByText('Einmal Start und Ziel').waitFor()

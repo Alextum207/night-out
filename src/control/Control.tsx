@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip } from 'react-leaflet'
-import type { Action, ActionKind, DemoPayload, Hotspot, ScenarioId, Tap } from '../types'
+import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import type { Action, ActionKind, DemoPayload, Hotspot, Route, ScenarioId, Tap } from '../types'
 import { connect, transport } from '../realtime'
 import { isVirtual, now, onClock, setVirtual } from '../clock'
 import { groupTaps } from '../hotspots'
@@ -33,6 +33,16 @@ function actionFor(kind: ActionKind, c: Hotspot): Action {
   }
 }
 
+// Zoom the map to the current route whenever it changes.
+function FitRoute({ route }: { route: Route }) {
+  const map = useMap()
+  useEffect(() => {
+    const pts = route.legs.flatMap((l) => l.stops.map((s) => [s.lat, s.lng] as [number, number]))
+    if (pts.length) map.fitBounds(pts, { padding: [40, 40] })
+  }, [map, route])
+  return null
+}
+
 export default function Control() {
   const [taps, setTaps] = useState(() => new Map<string, Tap>())
   const [demo, setDemo] = useState<DemoPayload | null>(null)
@@ -59,9 +69,11 @@ export default function Control() {
     ]
     const off = onClock(() => tick((x) => x + 1))
     const id = setInterval(() => tick((x) => x + 1), 2000)
+    const hash = () => { if (location.hash.includes('demo')) setPanel(true) }
+    addEventListener('hashchange', hash)
     const key = (e: KeyboardEvent) => { if (e.key === 'd' && !(e.target instanceof HTMLInputElement)) setPanel((p) => !p) }
     addEventListener('keydown', key)
-    return () => { offs.forEach((f) => f()); off(); clearInterval(id); removeEventListener('keydown', key) }
+    return () => { offs.forEach((f) => f()); off(); clearInterval(id); removeEventListener('keydown', key); removeEventListener('hashchange', hash) }
   }, [rt])
 
   const t = now()
@@ -116,12 +128,13 @@ export default function Control() {
         <span className="text-sm text-slate-400">MVG Live-Lage</span>
         <span className="ml-auto text-2xl font-bold tabular-nums">{hhmm(t)}</span>
         {isVirtual() && <span className="rounded bg-amber-500/20 px-2 text-xs text-amber-300">Szenario</span>}
-        <span className="text-xs text-slate-500">{transport === 'supabase' ? 'live' : 'lokal'}</span>
+        <button onClick={() => setPanel((p) => !p)} className="text-xs text-slate-500 hover:text-slate-300">{transport === 'supabase' ? 'live' : 'lokal'} · Demo</button>
       </header>
 
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
           <MapContainer center={[48.17, 11.6]} zoom={12} className="h-full w-full bg-slate-900" zoomControl={false}>
+            <FitRoute route={route} />
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" className="map-tiles" />
             {route.legs.map((l, i) => <Polyline key={i} positions={l.polyline} pathOptions={{ color: l.line === 'U3' ? '#f97316' : '#2563eb', weight: 6, opacity: 0.8 }} />)}
             {stops.map((s, i) => (
