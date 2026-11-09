@@ -14,8 +14,8 @@ const arenaRoute = route(arena) // U6 Fröttmaning -> Sendlinger Tor, after the 
 const garchingRoute = route(garching) // U6 Garching-Forschungszentrum -> Münchner Freiheit -> U3 Marienplatz, ~00:46
 
 export const SNAPSHOTS: Record<ScenarioId, { label: string; route: Route; virtualNow: number }> = {
-  // On the train, about 2 min before Münchner Freiheit.
-  arena: { label: 'Arena (U6 nach dem Spiel)', route: arenaRoute, virtualNow: stopById(arenaRoute, 'de:09162:500').dep - 90_000 },
+  // On the train, just past Dietlindenstraße; next stop Münchner Freiheit.
+  arena: { label: 'Arena (U6 nach dem Spiel)', route: arenaRoute, virtualNow: stopById(arenaRoute, 'de:09162:510').dep + 10_000 },
   // Alone on the platform, 4 min before the night U6 leaves.
   garching: { label: 'Garching (nachts allein am Bahnsteig)', route: garchingRoute, virtualNow: garchingRoute.legs[0].stops[0].dep - 4 * 60_000 },
 }

@@ -29,6 +29,8 @@ export type Position = {
   nextStop: Stop // train: next stop; platform: the station you stand at
   etaMin: number // minutes until nextStop (train) or until departure (platform)
   trainKey: string
+  lat: number // interpolated between prevStop and nextStop on the train
+  lng: number
 }
 
 export type ScenarioId = 'arena' | 'garching'
