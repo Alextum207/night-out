@@ -1,15 +1,16 @@
 // End-to-end demo check with the installed Chrome (headless). Run: npm run e2e [baseUrl]
 // Default base: http://localhost:5173. Without Supabase env vars all pages share one browser
-// context, so the BroadcastChannel fallback connects them; with Supabase it tests the real channel.
+// context, so the BroadcastChannel fallback connects them. With Supabase use SEPARATE=1.
 import assert from 'node:assert/strict'
 import { chromium, type Page } from 'playwright-core'
 
 const BASE = process.argv[2] ?? 'http://localhost:5173'
 const browser = await chromium.launch({ channel: 'chrome', headless: !process.env.HEADED })
-const ctx = await browser.newContext()
+// SEPARATE=1: every page gets its own browser profile, like separate phones (needs Supabase).
+const shared = process.env.SEPARATE ? null : await browser.newContext()
 const errors: string[] = []
 const open = async (hash: string, mobile = false) => {
-  const p = await ctx.newPage()
+  const p = await (shared ?? (await browser.newContext())).newPage()
   if (mobile) await p.setViewportSize({ width: 390, height: 844 })
   p.on('pageerror', (e) => errors.push(`${hash}: ${e.message}`))
   await p.goto(`${BASE}/${hash}`)
