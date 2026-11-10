@@ -1,0 +1,48 @@
+/* SafeRide design tokens: one source for SafeRide (public/saferide/app.css) and Way Out's rider views.
+   Ink on paper, the network carries the colour, red only for danger. Dark mode via html[data-mode="dark"]. */
+:root {
+  --paper: #F4F6F8;
+  --surface: #FFFFFF;
+  --surface-2: #EEF1F4;
+  --ink: #142230;
+  --muted: #5A6878;
+  --hairline: #D6DCE2;
+  --danger: #D21F3C;
+  --warn: #E08A00;
+  --caution: #D9B200;
+  --ok: #23955F;
+  --focus: #2E6BE6;
+  --shadow: 0 6px 24px rgba(20, 34, 48, .14), 0 1px 3px rgba(20, 34, 48, .10);
+  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r-lg: 22px; --r-md: 14px; --r-sm: 10px;
+  --tab-h: 64px;
+  --sa-b: env(safe-area-inset-bottom, 0px);
+  --sa-t: env(safe-area-inset-top, 0px);
+}
+:root[data-mode="dark"] {
+  --paper: #0E1620;
+  --surface: #17212C;
+  --surface-2: #212D3A;
+  --ink: #E6ECF2;
+  --muted: #95A3B2;
+  --hairline: #2B3847;
+  --danger: #FF4459;
+  --warn: #F2A33A;
+  --caution: #E6C84A;
+  --ok: #3CC184;
+  --focus: #7EA6FF;
+  --shadow: 0 8px 28px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-hairline: var(--hairline);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --font-ride: var(--font);
+}

@@ -1,6 +1,7 @@
 // Connects the SafeRide page (public/saferide/app.js, plain JS) to the Way Out channel.
 // SafeRide -> `sr:report` window event -> `report` to the control room.
 // Control room `crowds` (Way Out hotspots + everyone's reports) -> `sr:crowds` window event -> SafeRide alerts.
+import './saferide.css' // design tokens (+ Tailwind utilities without Preflight)
 import { connect } from './realtime'
 import type { Report } from './types'
 

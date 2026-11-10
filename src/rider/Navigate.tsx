@@ -77,22 +77,22 @@ export default function Navigate(p: Props) {
   const rot = step.kind === 'straight' && heading !== null ? step.bearing - heading : 0
 
   return (
-    <div className="fixed inset-0 z-50 flex h-dvh flex-col bg-slate-950">
+    <div className="fixed inset-0 z-50 flex h-dvh flex-col bg-paper font-ride">
       <section
         onPointerDown={(e) => (sx.current = e.clientX)} onPointerUp={onUp}
         className={`relative flex flex-1 select-none flex-col items-center justify-center gap-3 px-6 text-white ${done ? 'bg-emerald-600' : 'bg-violet-700'}`}>
         <div className="absolute left-4 right-4 top-3 flex items-center text-sm text-white/80">
           <span>Schritt {idx + 1}/{steps.length}{level && ` · ${level}`}</span>
-          <button onPointerUp={(e) => e.stopPropagation()} onClick={p.onClose} className="ml-auto min-h-11 min-w-11 text-2xl" aria-label="Schließen">✕</button>
+          <button onPointerUp={(e) => e.stopPropagation()} onClick={p.onClose} className="ml-auto min-h-11 min-w-11 border-0 bg-transparent text-2xl text-white" aria-label="Schließen">✕</button>
         </div>
-        {p.feedback && <p className="absolute top-14 rounded-full bg-white/20 px-3 py-1 text-sm">{p.feedback.text}</p>}
+        {p.feedback && <p className="absolute top-14 m-0 rounded-full bg-white/20 px-3 py-1 text-sm">{p.feedback.text}</p>}
         <Glyph kind={step.kind} rotate={rot} />
-        <p className="text-center text-2xl font-bold leading-snug" data-testid="nav-text">{step.text}</p>
-        {plan.hint && <p className="rounded-lg bg-black/25 px-3 py-1 text-center text-sm">{plan.hint}</p>}
+        <p className="m-0 text-center text-2xl font-bold leading-snug" data-testid="nav-text">{step.text}</p>
+        {plan.hint && <p className="m-0 rounded-lg bg-black/25 px-3 py-1 text-center text-sm">{plan.hint}</p>}
         <div className="absolute bottom-3 left-4 right-4 flex gap-2" onPointerUp={(e) => e.stopPropagation()}>
-          {idx > 0 && <button onClick={back} className="min-h-11 rounded-full bg-white/15 px-4">Zurück</button>}
+          {idx > 0 && <button onClick={back} className="min-h-11 rounded-full border-0 bg-white/15 px-4 text-white">Zurück</button>}
           {!out && p.target !== 'emergency' && g && (
-            <button onClick={() => { setOut(true); setI(0) }} className="ml-auto min-h-11 rounded-full bg-white px-4 font-semibold text-violet-800">Lieber raus auf die Straße</button>
+            <button onClick={() => { setOut(true); setI(0) }} className="ml-auto min-h-11 rounded-full border-0 bg-white px-4 font-semibold text-violet-800">Lieber raus auf die Straße</button>
           )}
           {!done && <span className="ml-auto self-center text-sm text-white/70">Tippen für weiter</span>}
         </div>
@@ -155,8 +155,8 @@ function NavMap({ steps, current, stop, crowds, outline, police }: {
   const levelLabels = steps.filter((s, i) => s.level !== null && (i === 0 || steps[i - 1].level !== s.level) && s.kind !== 'arrive')
   return (
     <MapContainer center={[stop.lat, stop.lng]} zoom={18} zoomControl={false} attributionControl={false} className="h-full w-full">
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="map-tiles" maxZoom={20} maxNativeZoom={19} />
-      <Circle center={[stop.lat, stop.lng]} radius={140} pathOptions={{ stroke: false, fillColor: '#020617', fillOpacity: 0.55 }} />
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="nav-tiles" maxZoom={20} maxNativeZoom={19} />
+      <Circle center={[stop.lat, stop.lng]} radius={140} pathOptions={{ stroke: false, fillColor: '#142230', fillOpacity: 0.35 }} />
       {outline.map((o, i) => <Polygon key={i} positions={o} pathOptions={{ color: '#cbd5e1', weight: 1.5, fillColor: '#94a3b8', fillOpacity: 0.12 }} />)}
       {steps.map((s, i) => s.points.length > 1 && (
         <Polyline key={`g${i}`} positions={s.points} pathOptions={{ color: '#ffffff', weight: i === current ? 16 : 12, opacity: 0.55, lineCap: 'round' }} />
