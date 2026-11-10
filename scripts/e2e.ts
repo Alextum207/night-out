@@ -107,9 +107,12 @@ try {
     }
     return texts
   }
+  // Sync on the reset itself: put every rider into Way Out first; the reset sends them back to riding.
+  const screenOf = (r: Page) => r.evaluate(() => JSON.parse(sessionStorage.getItem('wayout.state')!).screen as string)
+  for (const r of riders) if (await screenOf(r) === 'riding') await r.getByRole('button', { name: 'Way Out' }).click()
   await control.getByRole('button', { name: /Arena/ }).click()
   for (const r of riders) {
-    await r.getByText('Nächster Halt Münchner Freiheit').waitFor({ timeout: 3000 })
+    await r.waitForFunction(() => JSON.parse(sessionStorage.getItem('wayout.state')!).screen === 'riding', null, { timeout: 3000 })
     await r.getByRole('button', { name: 'Way Out' }).click()
   }
   await riders[0].getByRole('button', { name: /aussteigen/ }).click()
@@ -150,6 +153,9 @@ try {
   await control.getByRole('button', { name: /Arena/ }).click()
   const srA = await open('', true, '/saferide.html'), srB = await open('', true, '/saferide.html')
   for (const s of [srA, srB]) await s.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
+  await srA.getByTestId('ride-strip').getByText('Münchner Freiheit').waitFor({ timeout: 5000 })
+  await srA.locator('.sr-train').waitFor()
+  step('SafeRide shows the scenario train: ride bar under the top bar + marker on the map (issue #25)')
   await srA.locator('[data-tab="report"]').click()
   await srA.locator('[data-rsize="large"]').click()
   await srA.locator('[data-rint="aggressive"]').click()
@@ -163,15 +169,46 @@ try {
   await srB.locator('[data-alert^="shared-4"]').waitFor({ timeout: 3000 }) // Way Out hotspot crowd (id = lat,lng)
   step('Way Out tap -> alert on SafeRide')
 
-  // --- SafeRide emergency -> Way Out (issue #20) ---
+  // --- SafeRide Notfall = Way Out overlay, no page change (issue #24) ---
+  const dialog = srA.getByRole('dialog', { name: 'Notfall' })
   await srA.locator('#btnPanic').click()
-  await srA.locator('[data-wayout]').click()
-  await srA.getByRole('button', { name: 'Betrunkene Gruppe' }).waitFor({ timeout: 5000 })
-  assert.equal(new URL(srA.url()).hash, '#/rider')
-  await control.getByText(/Einzelmeldung · 2|Hotspot/).first().waitFor({ timeout: 3000 })
-  step('SafeRide Notfall -> Way Out lands on the options, control gets the tap')
+  await dialog.getByText('110 anrufen').waitFor({ timeout: 3000 })
+  await dialog.getByText('Nächster Halt Münchner Freiheit').waitFor({ timeout: 3000 })
+  await control.getByText('Einzelmeldung · 2').waitFor({ timeout: 3000 }) // riders[0] + this phone
+  assert.ok(srA.url().includes('/saferide.html'))
+  await dialog.getByRole('button', { name: 'Betrunkene Gruppe' }).click()
+  await dialog.getByRole('button', { name: /aussteigen/ }).click()
+  await srA.getByTestId('nav-text').waitFor()
+  await srA.getByRole('button', { name: 'Schließen' }).click()
+  await dialog.getByRole('button', { name: 'Andere Verbindung' }).click()
+  await srA.locator('#sheet-panic [data-act="emergency"]').click()
+  await dialog.getByRole('button', { name: 'Andere Verbindung' }).click()
+  await srA.locator('#sheet-panic.open').waitFor()
+  await srA.keyboard.press('Escape') // closing the escape sheet any other way also returns to the emergency
+  await dialog.waitFor()
+  await dialog.getByRole('button', { name: "Mir geht's gut" }).click()
+  await dialog.waitFor({ state: 'detached' })
+  await control.getByText('Einzelmeldung · 2').waitFor({ state: 'detached', timeout: 3000 })
+  step('SafeRide Notfall: overlay with 110 + options, tap on control, navigation, escape sheet and back, "Mir geht\'s gut" ends it')
+  await srB.locator('#sheet-alerts [data-hdpanic]').click() // alerts sheet is open: Notfall sits in its header
+  await srB.getByRole('button', { name: 'Rückgängig' }).click()
+  await srB.getByRole('dialog', { name: 'Notfall' }).waitFor({ state: 'detached' })
+  await control.getByText('Einzelmeldung · 2').waitFor({ state: 'detached', timeout: 3000 })
+  step('Notfall "Rückgängig" withdraws the tap')
+
+  // --- Luna window on the projector = the integrated SafeRide page (issue #26) ---
+  await control.getByRole('button', { name: 'Luna-Fenster' }).click()
+  const luna = control.frameLocator('iframe[title="Luna"]')
+  await luna.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
+  await luna.getByTestId('ride-strip').getByText('Münchner Freiheit').waitFor({ timeout: 5000 })
+  await luna.locator('#btnPanic').click()
+  await luna.getByRole('dialog', { name: 'Notfall' }).getByText('110 anrufen').waitFor()
+  await luna.getByRole('button', { name: 'Notfall beenden' }).click()
+  await control.getByRole('button', { name: 'Luna-Fenster' }).click()
+  step('Luna window shows SafeRide with the scenario train; Notfall opens there')
 
   await control.getByRole('button', { name: /Arena/ }).click()
+  await srB.locator('[data-tab="alerts"]').click()
   await srB.locator('[data-alert^="shared-me-"]').waitFor({ state: 'detached', timeout: 3000 })
   assert.equal(await control.locator('path.sr-report').count(), 0)
   step('scenario reset clears shared reports')
@@ -179,6 +216,26 @@ try {
 
   // --- Real trips (free mode, live MVG API) ---
   await control.getByRole('button', { name: /Szenario beenden/ }).click()
+  { // A SafeRide trip becomes the Way Out train (issue #25)
+    const sr = await open('', true, '/saferide.html')
+    await sr.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
+    await sr.locator('[data-tab="route"]').click()
+    for (const [field, q] of [['from', 'Marienplatz'], ['to', 'Münchner Freiheit']]) {
+      await sr.locator(`[data-rfield="${field}"]`).click()
+      await sr.locator('#pickInput').fill(q)
+      await sr.locator('#pickResults [data-pick]').first().click()
+    }
+    await sr.locator('[data-ropt]').first().click()
+    await sr.locator('[data-act="trip"]').click()
+    await sr.locator('#btnPanic').click()
+    const d = sr.getByRole('dialog', { name: 'Notfall' })
+    await d.getByText(/Richtung/).first().waitFor({ timeout: 8000 })
+    const line = await d.locator('header span').first().innerText()
+    await control.locator('article', { hasText: line }).first().waitFor({ timeout: 3000 })
+    await d.getByRole('button', { name: "Mir geht's gut" }).click()
+    step(`SafeRide trip Marienplatz -> Münchner Freiheit = Way Out train ${line}, Notfall reaches the control room`)
+    await sr.close()
+  }
   for (const [from, to] of [['Hauptbahnhof', 'Münchner Freiheit'], ['Marienplatz', 'Garching, Forschungszentrum']]) {
     const r = await open('#/rider', true)
     await r.evaluate(() => sessionStorage.clear())
@@ -211,7 +268,7 @@ try {
     await control.screenshot({ path: `${process.env.SHOTS}/control.png` })
     await control.setViewportSize({ width: 1920, height: 1080 })
     await control.getByRole('button', { name: 'Luna-Fenster' }).click()
-    await control.frameLocator('iframe').getByRole('button', { name: 'Way Out' }).waitFor()
+    await control.frameLocator('iframe').locator('#btnPanic').waitFor()
     await control.screenshot({ path: `${process.env.SHOTS}/projector.png` })
     await riders[0].screenshot({ path: `${process.env.SHOTS}/rider-feedback.png`, fullPage: true })
     const fresh = await open('#/rider', true)

@@ -179,7 +179,7 @@ export default function Control() {
             })}
           </MapContainer>
           {luna && (
-            <iframe src="#/rider" title="Luna" className="absolute bottom-3 left-3 z-[1000] h-[720px] max-h-[85%] w-[375px] rounded-3xl border-4 border-slate-700 bg-slate-950 shadow-2xl" />
+            <iframe src={`saferide.html${location.search}`} title="Luna" className="absolute bottom-3 left-3 z-[1000] h-[720px] max-h-[85%] w-[375px] rounded-3xl border-4 border-slate-700 bg-slate-950 shadow-2xl" />
           )}
         </div>
 

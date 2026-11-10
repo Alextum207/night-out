@@ -4,41 +4,8 @@
    red is only for danger. One hyperlegible family for stress, darkness and one-handed use.
    Layout: full-bleed map; one slim bar on top, one status line under it; thumb-zone actions
    bottom right; everything else lives in sheets behind four tabs and a profile icon. */
-:root {
-  --paper: #F4F6F8;
-  --surface: #FFFFFF;
-  --surface-2: #EEF1F4;
-  --ink: #142230;
-  --muted: #5A6878;
-  --hairline: #D6DCE2;
-  --danger: #D21F3C;
-  --warn: #E08A00;
-  --caution: #D9B200;
-  --ok: #23955F;
-  --focus: #2E6BE6;
-  --shadow: 0 6px 24px rgba(20, 34, 48, .14), 0 1px 3px rgba(20, 34, 48, .10);
-  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --r-lg: 22px; --r-md: 14px; --r-sm: 10px;
-  --tab-h: 64px;
-  --sa-b: env(safe-area-inset-bottom, 0px);
-  --sa-t: env(safe-area-inset-top, 0px);
-  color-scheme: light;
-}
-:root[data-mode="dark"] {
-  --paper: #0E1620;
-  --surface: #17212C;
-  --surface-2: #212D3A;
-  --ink: #E6ECF2;
-  --muted: #95A3B2;
-  --hairline: #2B3847;
-  --danger: #FF4459;
-  --warn: #F2A33A;
-  --caution: #E6C84A;
-  --ok: #3CC184;
-  --focus: #7EA6FF;
-  --shadow: 0 8px 28px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
-  color-scheme: dark;
-}
+:root { color-scheme: light; } /* tokens live in src/tokens.css (shared with Way Out) */
+:root[data-mode="dark"] { color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.4;
@@ -356,7 +323,7 @@ ul.plain { margin: 0; padding: 0 0 0 18px; display: grid; gap: 6px; font-size: 1
 .state.live { background: rgba(128,128,128,.14); background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 input.textin { width: 100%; height: 48px; border-radius: var(--r-sm); border: 1px solid var(--hairline); background: var(--surface-2); padding: 0 12px; font-size: 15px; }
 
-.toast { position: absolute; left: 50%; top: calc(var(--sa-t) + 124px); transform: translate(-50%, -10px); z-index: 14; background: var(--ink); color: var(--paper);
+.toast { position: absolute; left: 50%; top: calc(var(--sa-t) + 124px); transform: translate(-50%, -10px); z-index: 60; /* above the Way Out overlay (z 40) */ background: var(--ink); color: var(--paper);
   border-radius: var(--r-md); padding: 12px 16px; font-size: 14.5px; font-weight: 600; max-width: min(92%, 420px); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; z-index: 4; color: var(--muted); font-weight: 600; pointer-events: none; }
@@ -374,3 +341,6 @@ input.textin { width: 100%; height: 48px; border-radius: var(--r-sm); border: 1p
 }
 @media (max-width: 370px) { .brand span { display: none; } .cond .w .tx { display: none; } }
 @media (prefers-reduced-motion: reduce) { .sheet, .scrim, .toast, .switch, .switch::after, details.dd summary .chev, .actions { transition: none; } }
+
+/* Way Out scenario train (src/saferide/main.tsx) */
+.sr-train .badge { box-shadow: 0 0 0 4px var(--surface), 0 4px 14px rgba(0,0,0,.35); }

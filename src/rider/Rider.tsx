@@ -1,234 +1,53 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Action, Crowd, Option, Route, ScenarioId } from '../types'
-import { connect } from '../realtime'
-import { isVirtual, now, onClock, setVirtual } from '../clock'
-import { where } from '../position'
-import { buildOptions } from '../options'
-import { getDepartures, getRoute, searchStations, type Departure, type StationHit } from '../mvg'
-import { emptiestCar, MOCK_CROWDS, SNAPSHOTS } from '../mock'
-import { bearing } from '../indoor'
-import { requestCompass } from '../compass'
-import Navigate, { type NavTarget } from './Navigate'
+// #/rider: standalone Way Out (fallback and tests). The main rider app is SafeRide with the emergency overlay.
+import { useEffect, useState } from 'react'
+import { getRoute, searchStations, type StationHit } from '../mvg'
+import type { Route } from '../types'
+import { useRide } from './useRide'
+import WayOutPanel, { RideBar, WayOutScreens } from './WayOutPanel'
 
-const REASONS = ['Betrunkene Gruppe', 'Belästigung', 'Zu voll', 'Fühle mich verfolgt']
-
-type Screen = 'setup' | 'riding' | 'wayout' | 'closed'
-type Saved = { route: Route | null; scenario: ScenarioId | null; screen: Screen; reasons: string[]; virtual: number | null; feedback: Action | null; nav: NavTarget | null; frontCar: boolean }
-
-const store = {
-  get<T>(k: string): T | null {
-    try { return JSON.parse(sessionStorage.getItem(k) ?? 'null') } catch { return null }
-  },
-  set(k: string, v: unknown) {
-    try { sessionStorage.setItem(k, JSON.stringify(v)) } catch { /* private mode */ }
-  },
-}
-const sessionId: string = store.get('wayout.session') ?? (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2))
-store.set('wayout.session', sessionId)
-
-// Restore the scenario clock after a reload (sessionStorage is per tab).
-const initial = location.hash.startsWith('#/rider') ? store.get<Saved>('wayout.state') : null
-if (initial?.virtual) setVirtual(initial.virtual)
-
-const hhmm = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+const shell = 'mx-auto flex min-h-dvh max-w-md flex-col gap-4 bg-paper p-4 pb-8 font-ride text-ink'
 
 export default function Rider() {
-  const saved = initial
-  const [route, setRoute] = useState<Route | null>(saved?.route ?? null)
-  const [scenario, setScenario] = useState<ScenarioId | null>(saved?.scenario ?? null)
-  const [screen, setScreen] = useState<Screen>(saved?.screen ?? 'setup')
-  const [reasons, setReasons] = useState<string[]>(saved?.reasons ?? [])
-  const [feedback, setFeedback] = useState<Action | null>(saved?.feedback ?? null)
-  const [departures, setDepartures] = useState<Departure[] | null>(null)
-  const [nav, setNav] = useState<NavTarget | null>(saved?.nav ?? null)
-  const [frontCar, setFrontCar] = useState(saved?.frontCar ?? false)
-  const [showFront, setShowFront] = useState(false)
-  const [liveCrowds, setLiveCrowds] = useState<Crowd[]>([])
-  const [, tick] = useState(0)
-
-  const pos = route ? where(route, now()) : null
-
-  // Re-render on clock changes and every 5 s so position/ETA stay current.
+  const ride = useRide({ persist: true })
+  // Same theme rule as SafeRide (auto: dark 20:00-06:00); the control room on this page stays as it is.
   useEffect(() => {
-    const off = onClock(() => tick((x) => x + 1))
-    const id = setInterval(() => tick((x) => x + 1), 5000)
-    return () => { off(); clearInterval(id) }
+    const h = new Date().getHours()
+    document.documentElement.dataset.mode = h >= 20 || h < 6 ? 'dark' : 'light'
+    return () => { delete document.documentElement.dataset.mode }
   }, [])
+  const { route, pos, leg, screen } = ride
 
-  useEffect(() => {
-    store.set('wayout.state', { route, scenario, screen, reasons, virtual: isVirtual() ? now() : null, feedback, nav, frontCar } satisfies Saved)
-  })
-
-  // Realtime wiring. Refs keep handlers current without resubscribing.
-  const state = useRef({ route, pos, screen, reasons })
-  state.current = { route, pos, screen, reasons }
-  const rt = useMemo(() => connect('rider', () => hello()), [])
-  const hello = () => rt.send('hello', { sessionId, trainKey: state.current.pos?.trainKey ?? null })
-
-  useEffect(() => {
-    const offs = [
-      rt.on('demo', (d) => {
-        if (d.to && d.to !== sessionId) return
-        const sameTrain = state.current.route && where(state.current.route, d.virtualNow).trainKey === where(d.route, d.virtualNow).trainKey
-        setVirtual(d.virtualNow)
-        if (d.to && sameTrain) return // catch-up reply: keep our screen
-        if (!d.reset && sameTrain) return // time jump only
-        setRoute(d.route); setScenario(d.scenario); setScreen('riding'); setReasons([]); setFeedback(null); setNav(null); setFrontCar(false)
-      }),
-      rt.on('action', (a) => {
-        const s = state.current
-        if (s.screen !== 'wayout' || !s.pos) return
-        const mine = 'sessionId' in a.target ? a.target.sessionId === sessionId : a.target.trainKey === s.pos.trainKey
-        if (mine) setFeedback(a)
-      }),
-      rt.on('crowds', (c) => setLiveCrowds(c.crowds)),
-    ]
-    hello()
-    const vis = () => document.visibilityState === 'visible' && hello()
-    document.addEventListener('visibilitychange', vis)
-    return () => { offs.forEach((f) => f()); document.removeEventListener('visibilitychange', vis) }
-  }, [rt])
-
-  // Live departures for the "next train" hint (free mode only; scenarios use the snapshot).
-  const depStation = pos?.nextStop.id
-  useEffect(() => {
-    setDepartures(null)
-    if (!depStation || scenario || screen !== 'wayout') return
-    let live = true
-    void getDepartures(depStation).then((d) => live && setDepartures(d))
-    return () => { live = false }
-  }, [depStation, scenario, screen])
-
-  const sendTap = (rs: string[]) => {
-    if (!pos || !route) return
-    const leg = route.legs[pos.leg]
-    rt.send('tap', {
-      sessionId, trainKey: pos.trainKey, line: leg.line, destination: leg.destination, state: pos.state,
-      nextStopId: pos.nextStop.id, nextStopName: pos.nextStop.name, lat: pos.lat, lng: pos.lng, reasons: rs, at: now(),
-    })
+  if (screen === 'setup' || !route || !pos || !leg) {
+    return <TripSetup onRoute={(r) => ride.setFreeRoute(r, true)} />
   }
-
-  const wayOut = () => { setReasons([]); setFeedback(null); setScreen('wayout'); sendTap([]) }
-
-  // Opened from SafeRide's emergency sheet (#/rider/wayout): go straight to the options once a ride is known.
-  const autoWayOut = useRef(location.hash === '#/rider/wayout')
-  useEffect(() => {
-    if (!autoWayOut.current || screen !== 'riding' || !pos) return
-    autoWayOut.current = false
-    history.replaceState(null, '', '#/rider')
-    wayOut()
-  })
-  const toggle = (r: string) => {
-    const next = reasons.includes(r) ? reasons.filter((x) => x !== r) : [...reasons, r]
-    setReasons(next); sendTap(next)
-  }
-  const fine = () => { rt.send('fine', { sessionId }); setScreen('closed'); setNav(null) }
-  const choose = (o: Option) => {
-    if (o.target === 'frontCar') { setFrontCar(true); setShowFront(true); return }
-    if (!o.target) return
-    requestCompass() // iOS only asks inside a tap
-    setNav(o.target)
-  }
-
-  if (screen === 'setup' || !route || !pos) {
-    return <TripSetup onRoute={(r) => { setVirtual(null); setScenario(null); setRoute(r); setScreen('riding') }} />
-  }
-
-  const leg = route.legs[pos.leg]
-  const nextTrainMin = scenario ? SNAPSHOTS[scenario].nextTrainMin : 10
-  const options = buildOptions(pos, route, departures, nextTrainMin)
-  // Direction of travel at the station: arriving train (on board) or departing train (on the platform).
-  const st = pos.nextStop, stops = leg.stops, k = stops.findIndex((x) => x.id === st.id)
-  const travelBearing = pos.prevStop ? bearing([pos.prevStop.lat, pos.prevStop.lng], [st.lat, st.lng])
-    : stops[k + 1] ? bearing([st.lat, st.lng], [stops[k + 1].lat, stops[k + 1].lng]) : null
-  const crowds = [...(MOCK_CROWDS[st.id] ?? []), ...liveCrowds]
-
-  if (screen === 'wayout' && nav) {
-    return <Navigate stop={st} target={nav} travelBearing={travelBearing} frontCar={frontCar} reasons={reasons} crowds={crowds}
-      nextTrainMin={nextTrainMin} feedback={feedback} onClose={() => setNav(null)} />
-  }
-  if (screen === 'wayout' && showFront) {
-    return (
-      <main onClick={() => setShowFront(false)} className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-violet-700 p-6 text-center text-white">
-        <svg viewBox="0 0 100 100" className="h-44 w-44" aria-hidden><path d="M50 6 L86 50 H62 V94 H38 V50 H14 Z" fill="white" /></svg>
-        <p className="text-2xl font-bold">Geh im Zug in Fahrtrichtung nach vorne in den {emptiestCar(leg.line)} Wagen.</p>
-        <p className="text-white/80">Beim Aussteigen starten wir den Weg dann vom vorderen Bahnsteigende.</p>
-        <button className="min-h-12 rounded-full bg-white px-6 font-bold text-violet-800">Fertig</button>
-      </main>
-    )
-  }
+  if (screen === 'wayout' && (ride.nav || ride.showFront)) return <WayOutScreens ride={ride} />
 
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col gap-4 p-4 pb-8">
-      <header className="rounded-2xl bg-slate-800/80 p-4">
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <span className="rounded bg-sky-600 px-2 py-0.5 font-bold text-white">{leg.line}</span>
-          <span>Richtung {leg.destination}</span>
-          <span className="ml-auto tabular-nums">{hhmm(now())}</span>
-        </div>
-        <p className="mt-2 text-lg font-semibold">
-          {pos.state === 'train'
-            ? <>Nächster Halt <b>{pos.nextStop.name}</b> in {pos.etaMin} Min</>
-            : pos.etaMin > 0
-              ? <>Am Bahnsteig <b>{pos.nextStop.name}</b>, Abfahrt in {pos.etaMin} Min</>
-              : <>Angekommen: <b>{pos.nextStop.name}</b></>}
-        </p>
-      </header>
+    <div className="min-h-dvh bg-paper">
+      <main className={shell}>
+        <RideBar ride={ride} clock />
 
-      {screen === 'riding' && (
-        <>
-          <button onClick={wayOut} className="mt-6 aspect-square w-full rounded-full bg-violet-600 text-4xl font-black text-white shadow-2xl shadow-violet-900/60 active:scale-95">
-            Way Out
-          </button>
-          <p className="text-center text-sm text-slate-400">Ein Tipp, wenn du dich unwohl fühlst. Anonym. Im Notfall: 110.</p>
-          <button onClick={() => setScreen('setup')} className="min-h-11 text-sm text-slate-500 underline">Andere Fahrt</button>
-        </>
-      )}
+        {screen === 'riding' && (
+          <>
+            <button onClick={ride.wayOut} className="mt-6 aspect-square w-full rounded-full border-0 bg-violet-600 text-4xl font-black text-white shadow-2xl shadow-violet-900/40 active:scale-95">
+              Way Out
+            </button>
+            <p className="m-0 text-center text-sm text-muted">Ein Tipp, wenn du dich unwohl fühlst. Anonym. Im Notfall: 110.</p>
+            <button onClick={() => ride.setScreen('setup')} className="min-h-11 border-0 bg-transparent text-sm text-muted underline">Andere Fahrt</button>
+          </>
+        )}
 
-      {screen === 'wayout' && (
-        <>
-          {feedback ? (
-            <section className="rounded-2xl bg-emerald-600 p-4 text-white">
-              <p className="text-xl font-bold">{feedback.text}</p>
-              {feedback.steps.length > 0 && (
-                <ol className="mt-3 list-decimal space-y-1 pl-5">{feedback.steps.map((s) => <li key={s}>{s}</li>)}</ol>
-              )}
-            </section>
-          ) : (
-            <p className="rounded-2xl bg-slate-800 p-3 text-center text-slate-300">Die Leitstelle sieht deine Meldung.</p>
-          )}
-          <section className="flex flex-col gap-3">
-            {options.map((o) => (
-              <button key={o.kind} onClick={() => choose(o)} disabled={!o.target}
-                className="rounded-2xl bg-slate-800 p-4 text-left enabled:active:scale-[0.98] enabled:hover:bg-slate-700">
-                <p className="text-lg font-bold">{o.title}{o.target && <span className="float-right text-violet-400">→</span>}</p>
-                <p className="mt-1 text-slate-300">{o.detail}</p>
-              </button>
-            ))}
+        {screen === 'wayout' && <WayOutPanel ride={ride} onFine={() => ride.fine()} />}
+
+        {screen === 'closed' && (
+          <section className="mt-8 flex flex-col gap-4 text-center">
+            <p className="m-0 text-2xl font-bold">Gute Heimfahrt.</p>
+            <p className="m-0 text-muted">Sitzung beendet, dein Standort wurde gelöscht.</p>
+            <button onClick={() => ride.setScreen('riding')} className="min-h-11 rounded-full border border-hairline bg-surface-2 font-semibold">Zurück</button>
           </section>
-          <section>
-            <p className="mb-2 text-sm text-slate-400">Was ist los? (optional, leise an die Leitstelle)</p>
-            <div className="flex flex-wrap gap-2">
-              {REASONS.map((r) => (
-                <button key={r} onClick={() => toggle(r)}
-                  className={`min-h-11 rounded-full px-4 ${reasons.includes(r) ? 'bg-violet-600 text-white' : 'bg-slate-700 text-slate-200'}`}>
-                  {r}
-                </button>
-              ))}
-            </div>
-          </section>
-          <button onClick={fine} className="min-h-14 rounded-2xl bg-slate-200 text-lg font-bold text-slate-900">Mir geht's gut</button>
-        </>
-      )}
-
-      {screen === 'closed' && (
-        <section className="mt-8 flex flex-col gap-4 text-center">
-          <p className="text-2xl font-bold">Gute Heimfahrt.</p>
-          <p className="text-slate-400">Sitzung beendet, dein Standort wurde gelöscht.</p>
-          <button onClick={() => setScreen('riding')} className="min-h-11 rounded-2xl bg-slate-700">Zurück</button>
-        </section>
-      )}
-    </main>
+        )}
+      </main>
+    </div>
   )
 }
 
@@ -244,14 +63,16 @@ function TripSetup({ onRoute }: { onRoute: (r: Route) => void }) {
     onRoute(r.route)
   }
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col gap-4 p-4">
-      <h1 className="mt-6 text-3xl font-black">Way Out</h1>
-      <p className="text-slate-400">Einmal Start und Ziel eingeben. Wir nehmen die nächste Verbindung.</p>
-      <StationInput label="Start" value={from} onPick={setFrom} />
-      <StationInput label="Ziel" value={to} onPick={setTo} />
-      <button disabled={!from || !to} onClick={go} className="min-h-14 rounded-2xl bg-violet-600 text-lg font-bold text-white disabled:opacity-40">Los</button>
-      {msg && <p className="text-center text-slate-400">{msg}</p>}
-    </main>
+    <div className="min-h-dvh bg-paper">
+      <main className={shell}>
+        <h1 className="m-0 mt-6 text-3xl font-black">Way Out</h1>
+        <p className="m-0 text-muted">Einmal Start und Ziel eingeben. Wir nehmen die nächste Verbindung.</p>
+        <StationInput label="Start" value={from} onPick={setFrom} />
+        <StationInput label="Ziel" value={to} onPick={setTo} />
+        <button disabled={!from || !to} onClick={go} className="min-h-14 rounded-full border-0 bg-ink text-lg font-bold text-paper disabled:opacity-40">Los</button>
+        {msg && <p className="m-0 text-center text-muted">{msg}</p>}
+      </main>
+    </div>
   )
 }
 
@@ -265,15 +86,15 @@ function StationInput({ label, value, onPick }: { label: string; value: StationH
   }, [q, value])
   return (
     <label className="relative flex flex-col gap-1">
-      <span className="text-sm text-slate-400">{label}</span>
+      <span className="text-sm text-muted">{label}</span>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Haltestelle"
-        className="min-h-12 rounded-xl bg-slate-800 px-4 text-lg outline-none focus:ring-2 focus:ring-violet-500" />
+        className="min-h-12 rounded-xl border border-hairline bg-surface-2 px-4 text-lg text-ink outline-none focus:ring-2 focus:ring-ink" />
       {hits.length > 0 && (
-        <ul className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-xl bg-slate-700 shadow-xl">
+        <ul className="absolute top-full z-10 m-0 mt-1 w-full list-none overflow-hidden rounded-xl border border-hairline bg-surface p-0 shadow-xl">
           {hits.map((h) => (
             <li key={h.id}>
-              <button type="button" onClick={() => { onPick(h); setQ(h.name); setHits([]) }} className="min-h-11 w-full px-4 text-left hover:bg-slate-600">
-                {h.name} <span className="text-sm text-slate-400">{h.place}</span>
+              <button type="button" onClick={() => { onPick(h); setQ(h.name); setHits([]) }} className="min-h-11 w-full border-0 bg-transparent px-4 text-left text-ink hover:bg-surface-2">
+                {h.name} <span className="text-sm text-muted">{h.place}</span>
               </button>
             </li>
           ))}

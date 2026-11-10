@@ -1,0 +1,7 @@
+/* SafeRide page: Tailwind utilities without Preflight, so SafeRide's own CSS (public/saferide/app.css) stays untouched. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+@import 'leaflet/dist/leaflet.css';
+@import './theme.css'; /* tokens themselves: <link> in saferide.html */
+@import './nav.css';

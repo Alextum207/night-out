@@ -7,9 +7,11 @@ Die Entscheidungen dazu stehen in `idea.md` §12, Abschnitt „SafeRide merge“
 ## Aufruf
 
 - Handys öffnen: `/saferide.html?room=<raum>`. `?room` ist optional und muss vor dem `#` stehen, wie bei Way Out.
-- Im Notfall-Sheet öffnet der Button „Way Out“ die Seite `/?room=…#/rider/wayout`.
-  - Läuft gerade ein Szenario der Leitstelle, gehen die Way-Out-Optionen sofort auf.
-  - Sonst erscheint das Trip-Setup.
+- **Notfall** öffnet Way Out als Overlay direkt in SafeRide, ohne Seitenwechsel (Entscheidungen: idea.md §12 „One app“).
+  - Die Leitstelle wird sofort informiert: per Tap, sobald der Zug bekannt ist, und per Notfall-Pin, wenn der Standort an ist. 8 Sekunden lang gibt es „Rückgängig“.
+  - Oben steht „110 anrufen“, darunter die Rückmeldung der Leitstelle, die Way-Out-Optionen, „Andere Verbindung“ (SafeRides Fluchtroute) und die Gründe. Navigation und „Mir geht's gut“ laufen im selben Overlay.
+  - **Welcher Zug:** Bei einem Leitstellen-Szenario steht er in der Fahrleiste unter der Topbar und als Linien-Badge auf der Karte. Sonst kommt er aus einer laufenden SafeRide-Fahrt, die per MVG-Namenssuche in eine echte Route übersetzt wird.
+- `#/rider` ist die eigenständige Way-Out-Ansicht (Fallback und Tests). Das Luna-Fenster der Leitstelle zeigt SafeRide.
 - Leitstelle: `/` (mit `?demo` oder der Taste `d` für das Demo-Panel).
 
 ## Dateien
@@ -22,15 +24,17 @@ Die Entscheidungen dazu stehen in `idea.md` §12, Abschnitt „SafeRide merge“
 | `public/saferide/maplibre.js` | MapLibre GL JS 5.24, unverändert |
 | `public/saferide/data.js` | Netzdaten (`window.SR_DATA`: Linien, Haltestellen, Fahrmuster, Basiskarte, Glyphen) |
 | `public/saferide/pwa.js` | Web-App-Manifest (zum Startbildschirm hinzufügen) |
-| `src/saferide-bridge.ts` | Verbindung zum Way-Out-Kanal (`realtime.ts`) |
+| `src/saferide/main.tsx` | Way-Out-Schicht in SafeRide: Kanal (`useRide`), Notfall-Overlay, Fahrleiste, Zug-Marker |
+| `src/tokens.css` | Design-Tokens (hell/dunkel, Schrift, Farben), gemeinsam für SafeRide und Way Out |
 | `supabase/functions/monitor/` | Optionaler Proxy für RSS-News, **nicht deployt** |
 
 ## Verbindung mit Way Out
 
-- Eine Meldung oder ein Notfall-Pin löst `sr:report` (Window-Event) aus. Die Bridge schickt daraus das Event `report` an die Leitstelle.
+- SafeRide (`app.js`) und die Way-Out-Schicht sprechen über Window-Events: `sr:report`, `sr:crowds`, `sr:emergency`, `sr:emergency-open`, `sr:escape`, `sr:unpin`, `sr:trip` und `sr:train`. Die Liste steht oben in `src/saferide/main.tsx`.
+- Eine Meldung oder ein Notfall-Pin löst `sr:report` aus. Daraus wird das Event `report` an die Leitstelle.
   - Die Leitstelle zeigt die Meldung als Marker.
   - Aggressive und belästigende Gruppen sowie Notfall-Pins gehen als `unsafe` in `crowds` ein, laute Gruppen als `busy`.
-- Die Leitstelle verteilt `crowds` (Way-Out-Hotspots und alle Meldungen). Die Bridge macht daraus `sr:crowds`, und SafeRide zeigt die Einträge als Hinweise an. Sichere Routen fahren um diese Hinweise herum.
+- Die Leitstelle verteilt `crowds` (Way-Out-Hotspots und alle Meldungen). Daraus wird `sr:crowds`, und SafeRide zeigt die Einträge als Hinweise an. Sichere Routen fahren um diese Hinweise herum.
 - Meldungen laufen in Echtzeit ab: nach 45 Minuten, ein Notfall-Pin nach 15 Minuten. „Rückgängig“ beendet sie sofort. Ein Szenario-Start oder -Ende in der Leitstelle löscht alle geteilten Meldungen.
 
 ## Was live ist und was Demo
@@ -52,4 +56,4 @@ Esri-Kacheln und das FOSSGIS-Routing sind nur für Prototypen frei. Vor einem ö
 
 - Standort gibt es nur über HTTPS oder `localhost`. Ohne Standort bietet der Notfall-Modus die Demo-Fahrt auf der U3 an.
 - Zeiten laufen immer auf Münchner Zeit.
-- e2e: `SEPARATE=1 npm run e2e [url]` prüft Meldungen, Rückkanal, Reset und Notfall → Way Out.
+- e2e: `SEPARATE=1 npm run e2e [url]` prüft Meldungen, Rückkanal, Reset, das Notfall-Overlay (inkl. Navigation, Andere Verbindung, Rückgängig), Fahrleiste, Fahrt-Mapping und das Luna-Fenster.
