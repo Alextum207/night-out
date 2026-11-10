@@ -2,35 +2,36 @@
    Ink on paper, the network carries the colour, red only for danger. Dark mode via html[data-mode="dark"].
    Plain CSS on purpose: saferide.html links it render-blocking, so SafeRide has its colours before any JS runs. */
 :root {
-  --paper: #F4F6F8;
+  --paper: #F2F2F7;
   --surface: #FFFFFF;
-  --surface-2: #EEF1F4;
-  --ink: #142230;
-  --muted: #5A6878;
-  --hairline: #D6DCE2;
-  --danger: #D21F3C;
+  --surface-2: #F2F2F7;
+  --ink: #111113;
+  --muted: #6E6E73;
+  --hairline: rgba(17, 17, 19, .10);
+  --danger: #E23346;
   --warn: #E08A00;
   --caution: #D9B200;
-  --ok: #23955F;
-  --focus: #2E6BE6;
-  --shadow: 0 6px 24px rgba(20, 34, 48, .14), 0 1px 3px rgba(20, 34, 48, .10);
-  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --r-lg: 22px; --r-md: 14px; --r-sm: 10px;
-  --tab-h: 64px;
+  --ok: #1F9D63;
+  --focus: #0878FF;
+  --shadow: 0 12px 34px rgba(20, 24, 31, .14), 0 2px 8px rgba(20, 24, 31, .06);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  --r-lg: 28px; --r-md: 18px; --r-sm: 13px;
+  --tab-h: 266px; /* SafeRide home dock: SOS, sharing, tabs */
   --sa-b: env(safe-area-inset-bottom, 0px);
   --sa-t: env(safe-area-inset-top, 0px);
 }
 :root[data-mode="dark"] {
-  --paper: #0E1620;
-  --surface: #17212C;
-  --surface-2: #212D3A;
-  --ink: #E6ECF2;
-  --muted: #95A3B2;
-  --hairline: #2B3847;
-  --danger: #FF4459;
+  --paper: #0D0D0F;
+  --surface: #1C1C1E;
+  --surface-2: #2C2C2E;
+  --ink: #F5F5F7;
+  --muted: #A1A1A6;
+  --hairline: rgba(255, 255, 255, .12);
+  --danger: #FF4D61;
   --warn: #F2A33A;
   --caution: #E6C84A;
   --ok: #3CC184;
-  --focus: #7EA6FF;
-  --shadow: 0 8px 28px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
+  --focus: #64A8FF;
+  --shadow: 0 16px 40px rgba(0, 0, 0, .46), 0 2px 8px rgba(0, 0, 0, .32);
 }
+@media (max-width: 370px) { :root { --tab-h: 252px; } }

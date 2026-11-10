@@ -135,4 +135,82 @@ import type { Report } from './types'
   assert.deepEqual([c[0].from, c[0].to], [0, 100]) // real report times reach the other phones
 }
 
+// --- report categories: info reports reach the control room only, never a crowd (issue #32) ---
+import { REPORT_CATEGORIES } from './hotspots'
+{
+  const r = (id: string, category: string): Report => ({ id, sessionId: 's', lat: 48, lng: 11, size: null, intensity: null, category, text: null, panic: false, title: id, from: 0, to: 100 })
+  const c = reportCrowds(Object.keys(REPORT_CATEGORIES).map((k) => r(k, k)), 10)
+  assert.deepEqual(Object.fromEntries(c.map((x) => [x.id, x.kind])), {
+    harassment: 'unsafe', aggressive: 'unsafe', drunk: 'unsafe', followed: 'unsafe', theft: 'unsafe', crowded: 'busy',
+  }) // broken, dirty and free text ("other") are not crowds
+}
+
+// --- Way Out on every U3 station: mock layout, nearest staff point or busy area (issue #32) ---
+import { safeSpots } from './indoor'
+import { mockStation } from './indoorMock'
+{
+  const names = ['Odeonsplatz', 'Universität', 'Giselastraße', 'Bonner Platz', 'Scheidplatz', 'Olympiazentrum', 'Moosach']
+  const kinds = new Set<string>()
+  names.forEach((name, i) => {
+    const { graph: g, crowds } = mockStation({ name, lat: 48.14 + i * 0.01, lng: 11.57 }, i * 40)
+    const start = startNode(g, { lat: 48.14 + i * 0.01, lng: 11.57 }, false, i * 40)
+    assert.equal(g.nodes[start][2], -2, `${name}: start on the platform`)
+    const spots = safeSpots(g, start, crowds)
+    assert.deepEqual(spots.map((s) => s.kind).sort(), ['people', 'staff'], `${name}: both targets reachable`)
+    assert.ok(spots[0].path.length <= spots[1].path.length, `${name}: nearest first`)
+    const steps = toSteps(g, spots[0].path, i * 40, 'arrive', g.platforms[0].center)
+    assert.equal(steps.at(-1)!.kind, 'arrive')
+    assert.ok(steps.some((s) => /hoch/.test(s.text)), `${name}: leaves the platform level`)
+    kinds.add(spots[0].kind)
+  })
+  assert.deepEqual([...kinds].sort(), ['people', 'staff']) // the stations differ, so the demo shows both kinds of target
+  // Münchner Freiheit keeps its real data: the busy Leopoldstraße exit, never the unsafe exit E
+  const g = loadIndoor('de:09162:500')!
+  const people = safeSpots(g, startNode(g, { lat: 48.16195, lng: 11.58616 }, false, null), MOCK_CROWDS['de:09162:500']).find((s) => s.kind === 'people')
+  assert.ok(people && people.exit!.ref !== 'E', 'Münchner Freiheit: people = busy exit, not the unsafe one')
+}
+
+// --- EN/DE: every German UI key has an English entry (public/saferide/i18n.js) ---
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
+{
+  const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8')
+  const win: Record<string, unknown> = {}
+  runInNewContext(src('../public/saferide/i18n.js'), { window: win, localStorage: { getItem: () => 'de' }, document: { documentElement: {} }, location: {} })
+  const EN = win.SR_EN as Record<string, string>
+  const keys = new Set<string>()
+  const lit = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|`([^`$]*)`/g
+  // all string literals in the first argument of tt(…), t(…) and N(…)
+  const scan = (code: string) => {
+    for (const m of code.matchAll(/\b(?:tt|t|N)\(/g)) {
+      let i = m.index! + m[0].length, depth = 0, q = ''
+      const from = i
+      for (; i < code.length; i++) {
+        const c = code[i]
+        if (q) { if (c === '\\') i++; else if (c === q) q = ''; continue }
+        if (c === "'" || c === '"' || c === '`') q = c
+        else if ('([{'.includes(c)) depth++
+        else if (')]}'.includes(c)) { if (!depth) break; depth-- }
+        else if (c === ',' && !depth) break
+      }
+      for (const l of code.slice(from, i).matchAll(lit)) { const k = (l[1] ?? l[2] ?? l[3] ?? '').replace(/\\'/g, "'"); if (/[A-Za-zÄÖÜäöü]{2}/.test(k)) keys.add(k) }
+    }
+  }
+  scan(src('../public/saferide/app.js'))
+  for (const f of ['./indoor.ts', './rider/Navigate.tsx', './rider/WayOutPanel.tsx']) scan(src(f))
+  const nav = src('./rider/Navigate.tsx')
+  for (const m of nav.slice(nav.indexOf('const ARRIVE'), nav.indexOf('const exitText')).matchAll(/: '([^']+)'/g)) keys.add(m[1])
+  for (const m of nav.matchAll(/exitText\([^,]+, '([^']+)'\)/g)) keys.add(m[1])
+  // static markup: text nodes and labels in saferide.html
+  const html = src('../saferide.html').replace(/<script[\s\S]*?<\/script>|<svg[\s\S]*?<\/svg>|<head>[\s\S]*?<\/head>/g, '')
+  for (const m of html.matchAll(/>([^<>]*[A-Za-zÄÖÜäöü][^<>]*)</g)) keys.add(m[1].trim())
+  for (const m of html.matchAll(/(?:aria-label|placeholder|title)="([^"]+)"/g)) keys.add(m[1])
+  const same = new Set(['SafeRide', 'München', 'Way Out', 'U-Bahn', 'S-Bahn', 'Tram', 'MetroBus', 'Live', 'News', 'Status', 'Start', 'Auto', 'Wind', 'MVG', 'Simulation', 'demo', 'gps', 'safe', 'from', 'file:', 'staff']) // same in English, or code tokens inside a tt() argument
+  const missing = [...keys].filter((k) => EN[k] == null && !same.has(k))
+  if (missing.length) console.log(missing.map((k) => JSON.stringify(k)).join('\n'))
+  assert.equal(missing.length, 0, `${missing.length} German UI texts without English`)
+  const ph = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join()
+  for (const [k, v] of Object.entries(EN)) assert.equal(ph(v), ph(k), `placeholders differ: ${k}`)
+}
+
 console.log('selfcheck ok')

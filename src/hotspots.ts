@@ -28,10 +28,30 @@ export function groupTaps(taps: Map<string, Tap>, now: number): { hotspots: Hots
   return { hotspots: cards.filter((c) => c.level === 'hotspot'), singles: cards.filter((c) => c.level === 'single') }
 }
 
-// SafeRide reports as crowds for every map. Aggressive, harassing and panic pins are never a safe crowd.
+// SafeRide report categories (public/saferide/app.js REPORT_TYPES): the operator's label and how riders' maps treat them.
+// unsafe = never a safe crowd, busy = crowded, info = only for the control room (no crowd on any map).
+export const REPORT_CATEGORIES: Record<string, { label: string; kind: 'unsafe' | 'busy' | 'info' }> = {
+  harassment: { label: 'Belästigung', kind: 'unsafe' },
+  aggressive: { label: 'Aggressive Person', kind: 'unsafe' },
+  drunk: { label: 'Betrunkene Gruppe', kind: 'unsafe' },
+  followed: { label: 'Verfolgt oder beobachtet', kind: 'unsafe' },
+  theft: { label: 'Diebstahl', kind: 'unsafe' },
+  crowded: { label: 'Überfüllt', kind: 'busy' },
+  broken: { label: 'Defekt', kind: 'info' },
+  dirty: { label: 'Verschmutzung', kind: 'info' },
+  other: { label: 'Eigene Meldung', kind: 'info' },
+}
+export const reportKind = (r: Report): 'unsafe' | 'busy' | 'info' =>
+  r.panic || r.intensity === 'aggressive' || r.intensity === 'harassing' ? 'unsafe'
+    : r.category ? REPORT_CATEGORIES[r.category]?.kind ?? 'info'
+      : 'busy' // legacy group reports (size/intensity only)
+
+export const activeReports = (reports: Iterable<Report>, nowMs: number) => [...reports].filter((r) => r.from <= nowMs && nowMs < r.to)
+
+// SafeRide reports as crowds for every map. Info reports (broken, dirty, free text) are not crowds.
 export function reportCrowds(reports: Iterable<Report>, nowMs: number): Crowd[] {
-  return [...reports].filter((r) => r.from <= nowMs && nowMs < r.to).map((r) => ({
-    id: r.id, from: r.from, to: r.to, lat: r.lat, lng: r.lng, label: r.title,
-    kind: r.panic || r.intensity === 'aggressive' || r.intensity === 'harassing' ? 'unsafe' : 'busy',
-  }))
+  return activeReports(reports, nowMs).flatMap((r) => {
+    const kind = reportKind(r)
+    return kind === 'info' ? [] : [{ id: r.id, from: r.from, to: r.to, lat: r.lat, lng: r.lng, label: r.title, kind }]
+  })
 }
