@@ -15,16 +15,16 @@ export function buildOptions(p: Position, route: Route, departures: Departure[] 
     const next = departures?.find((d) => d.line === leg.line && d.destination === leg.destination && d.dep > arrive + 30_000)
     const wait = next ? Math.max(1, Math.round((next.dep - arrive) / 60_000)) : nextTrainMin
     return [
-      { kind: 'stepOut', title: `In ${p.etaMin} Min an ${st.name} aussteigen`, detail: `Gut beleuchtete Station mit Personal. Nächste ${leg.line} ${wait} Min später.${access}` },
-      { kind: 'move', title: `In den ${emptiestCar(leg.line)} Wagen wechseln`, detail: 'Dort ist es auf dieser Linie meist leerer. Beim nächsten Halt umsteigen.' },
-      { kind: 'security', title: `Security an ${st.name}`, detail: 'Die Leitstelle sieht deine Meldung und kann Security zum nächsten Halt schicken.' },
+      { kind: 'stepOut', target: 'wait', title: `In ${p.etaMin} Min an ${st.name} aussteigen`, detail: `Gut beleuchtete Station mit Personal. Nächste ${leg.line} ${wait} Min später.${access}` },
+      { kind: 'move', target: 'frontCar', title: `In den ${emptiestCar(leg.line)} Wagen wechseln`, detail: 'Dort ist es auf dieser Linie meist leerer. Beim nächsten Halt umsteigen.' },
+      { kind: 'security', target: 'security', title: `Security an ${st.name}`, detail: 'Die Leitstelle sieht deine Meldung und kann Security zum nächsten Halt schicken.' },
     ]
   }
   if (p.etaMin === 0 && p.leg === route.legs.length - 1) {
-    return [{ kind: 'security', title: 'Zum Notruf- und Infopunkt', detail: directions(st.id)[0] }]
+    return [{ kind: 'security', target: 'emergency', title: 'Zum Notruf- und Infopunkt', detail: directions(st.id)[0] }]
   }
   return [
-    { kind: 'security', title: 'Zum Notruf- und Infopunkt', detail: `${directions(st.id)[0]}${access}` },
+    { kind: 'security', target: 'emergency', title: 'Zum Notruf- und Infopunkt', detail: 'Wir zeigen dir den Weg zum hellen, überwachten Bereich.' + access },
     { kind: 'nextTrain', title: `${leg.line} Richtung ${leg.destination} in ${p.etaMin} Min`, detail: 'Steig vorne beim Fahrer ein, dort ist es am hellsten.' },
     { kind: 'move', title: 'Im hellen Bereich bleiben', detail: 'Stell dich unter die Kamera, nicht ans Bahnsteigende.' },
   ]

@@ -85,5 +85,43 @@ import type { Tap } from './types'
   assert.equal(g.singles.length, 2)
 }
 
-assert.ok(true)
+// --- indoor routing (issue #13) ---
+import { loadIndoor, startNode, routeTo, findRoute, toSteps, pickExit, bearing } from './indoor'
+import { MOCK_CROWDS } from './mock'
+{
+  const mf = loadIndoor('de:09162:500')!
+  const mfStop = SNAPSHOTS.arena.route.legs[0].stops.find((s) => s.id === 'de:09162:500')!
+  assert.equal(mfStop.platform, 2)
+  const start = startNode(mf, mfStop, false, 209)
+  assert.equal(mf.nodes[start][2], -2) // starts on the U-Bahn platform
+  assert.deepEqual(mf.exits.map((e) => e.ref).sort(), ['A', 'B', 'C', 'D', 'E', 'F', 'G'])
+  for (const e of mf.exits) assert.ok(routeTo(mf, start, e.node), `exit ${e.ref} reachable`)
+  const toWait = toSteps(mf, routeTo(mf, start, mf.wait)!, 209, 'Hier warten', mfStop && [mfStop.lat, mfStop.lng])
+  assert.ok(toWait.some((s) => s.kind === 'stairsUp' || s.kind === 'escalatorUp'), 'goes up to the mezzanine')
+  assert.equal(toWait.at(-1)!.kind, 'arrive')
+  assert.equal(toWait.at(-1)!.level, -1)
+  // An escalator on the way out is avoided when MVG reports it broken.
+  const escPath = mf.exits.map((e) => findRoute(mf, start, e.node)!).find((p) => p.kinds.includes('escalator'))!
+  const target = escPath.nodes.at(-1)!
+  assert.ok(!findRoute(mf, start, target, { brokenEscalator: true })?.kinds.includes('escalator'))
+  // Reason decides: followed -> towards people; drunk group -> away from crowds.
+  const crowds = MOCK_CROWDS['de:09162:500']
+  const followed = pickExit(mf, start, crowds, ['Fühle mich verfolgt'])!
+  const drunk = pickExit(mf, start, crowds, ['Betrunkene Gruppe'])!
+  assert.notEqual(followed.exit.ref, drunk.exit.ref)
+  assert.notEqual(drunk.exit.ref, 'E') // unsafe fans stand at E
+  assert.equal(drunk.avoided?.ref, 'E')
+  assert.equal(followed.exit.ref, 'A') // busy Leopoldstraße
+  // Garching: platform to the emergency point (elevator) stays on the platform.
+  const gf = loadIndoor('de:09184:460')!
+  const gStop = SNAPSHOTS.garching.route.legs[0].stops[0]
+  const gs = startNode(gf, gStop, false, null)
+  const em = routeTo(gf, gs, gf.emergency!)!
+  assert.ok(em.nodes.every((n) => gf.nodes[n][2] === -1))
+  // toSteps: a 90° turn becomes left/right.
+  const sq = { ...gf, nodes: [[48, 11, -1], [48.0005, 11, -1], [48.0005, 11.0007, -1]] as [number, number, number][], edges: [] }
+  const st = toSteps(sq, { nodes: [0, 1, 2], kinds: ['walk', 'walk'], length: 100 }, bearing([48, 11], [48.0005, 11]), 'x')
+  assert.deepEqual(st.map((s) => s.kind), ['straight', 'right', 'arrive'])
+}
+
 console.log('selfcheck ok')

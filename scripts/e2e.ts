@@ -90,6 +90,56 @@ try {
   await riders[0].getByText(/Nächster Halt Giselastraße|Nächster Halt Münchner Freiheit/).waitFor()
   step('time jump reaches riders without resetting them')
 
+  // --- Navigation split screen ---
+  const walk = async (r: Page) => { // tap through all steps, return the texts
+    const texts: string[] = []
+    for (let n = 0; n < 20; n++) {
+      const t = await r.getByTestId('nav-text').innerText()
+      texts.push(t)
+      if (await r.locator('section.bg-emerald-600').count()) break
+      await r.locator('section').first().click({ position: { x: 30, y: 200 } })
+    }
+    return texts
+  }
+  await control.getByRole('button', { name: /Arena/ }).click()
+  for (const r of riders) {
+    await r.getByText('Nächster Halt Münchner Freiheit').waitFor({ timeout: 3000 })
+    await r.getByRole('button', { name: 'Way Out' }).click()
+  }
+  await riders[0].getByRole('button', { name: /aussteigen/ }).click()
+  const toWait = await walk(riders[0])
+  assert.match(toWait[0], /Steig aus/)
+  assert.ok(toWait.some((t) => /Treppe hoch|Rolltreppe hoch/.test(t)), toWait.join(' | '))
+  assert.match(toWait.at(-1)!, /sicher/)
+  step(`navigation to the safe waiting point: ${toWait.join(' → ')}`)
+  if (process.env.SHOTS) await riders[0].screenshot({ path: `${process.env.SHOTS}/nav-arrive.png` })
+
+  const exitFor = async (r: Page, reason: string) => {
+    await r.getByRole('button', { name: reason }).click()
+    await r.getByRole('button', { name: /aussteigen/ }).click()
+    await r.getByRole('button', { name: 'Lieber raus auf die Straße' }).click()
+    if (process.env.SHOTS) await r.screenshot({ path: `${process.env.SHOTS}/nav-${reason.split(' ')[0]}.png` })
+    const hint = await r.locator('section').first().innerText()
+    const texts = await walk(r)
+    return { exit: texts.at(-1)!.match(/Ausgang (\w)/)![1], hint, texts }
+  }
+  const drunk = await exitFor(riders[1], 'Betrunkene Gruppe')
+  const followed = await exitFor(riders[2], 'Fühle mich verfolgt')
+  assert.notEqual(drunk.exit, 'E')
+  assert.match(drunk.hint, /Menschenmenge an Ausgang E/)
+  assert.equal(followed.exit, 'A')
+  assert.notEqual(drunk.exit, followed.exit)
+  step(`exit by reason: drunk group -> ${drunk.exit} (avoids E), followed -> ${followed.exit} (busy Leopoldstraße)`)
+  step(`  route out: ${drunk.texts.join(' → ')}`)
+
+  await control.getByRole('button', { name: /Garching/ }).click()
+  await riders[0].getByText(/Am Bahnsteig/).waitFor({ timeout: 3000 })
+  await riders[0].getByRole('button', { name: 'Way Out' }).click()
+  await riders[0].getByRole('button', { name: /Notruf- und Infopunkt/ }).click()
+  const toSos = await walk(riders[0])
+  assert.match(toSos.at(-1)!, /Notruf- und Infopunkt am Aufzug/)
+  step(`Garching: platform -> emergency point: ${toSos.join(' → ')}`)
+
   // --- Real trips (free mode, live MVG API) ---
   await control.getByRole('button', { name: /Szenario beenden/ }).click()
   for (const [from, to] of [['Hauptbahnhof', 'Münchner Freiheit'], ['Marienplatz', 'Garching, Forschungszentrum']]) {
@@ -105,7 +155,7 @@ try {
     const header = (await r.locator('header').innerText()).replace(/\s+/g, ' ')
     await r.getByRole('button', { name: 'Way Out' }).click()
     await r.getByRole('button', { name: 'Fühle mich verfolgt' }).click()
-    const opts = (await r.locator('section > div p.font-bold').allInnerTexts()).join(' / ')
+    const opts = (await r.locator('section > button p.font-bold').allInnerTexts()).join(' / ')
     const line = await r.locator('header span').first().innerText()
     await control.locator('article', { hasText: line }).filter({ hasText: 'Fühle mich verfolgt' }).first().waitFor({ timeout: 2000 })
     step(`real trip ${from} -> ${to}: "${header}" | option: "${opts}" | card on control`)

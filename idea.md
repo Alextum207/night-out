@@ -181,6 +181,27 @@ This file is the single source of decisions for the sprint. Exception to AGENTS.
 
 **Build notes**: `Route = { legs[] }` (one leg per vehicle, so real trips with a change work). "Szenario beenden" in the demo panel switches back to live mode for real trips. Tests: `npm run check` (selfcheck), `npm run smoke` (live MVG), `npm run e2e` (full demo + 2 real trips, installed Chrome, headless).
 
+
+**Navigation after Way Out (grilling round 2, 2026-11-10)**
+- "Aussteigen", "Security" and "Notrufpunkt" open a **split screen**. "Wagen wechseln" only shows an arrow towards the front or back of the train.
+- **Top half:** a calm violet background with a big white arrow. Fixed symbols for left, right, stairs up/down, escalator and elevator. On "straight ahead" the arrow turns with the phone's compass, if the rider allows it. Below the arrow: one short sentence. The last step is green ("Security wartet hier"). The rider moves to the next step by tapping or swiping (there is no GPS underground).
+- **Start:** the middle of the platform (the front end after "Wagen wechseln"). The first step is phrased relative to the direction of travel.
+- **Bottom half:** a street map at zoom 17-18 with the station area dimmed, the station outline bright and the route violet with a white glow.
+  - Underground parts are dashed, street level is solid. Both stay clearly visible.
+  - Icons for stairs, escalators and elevators sit on the route, with level labels.
+  - The current step is highlighted and the map zooms to it.
+  - Further icons: police (real stations from OSM), security teams (mock), crowds (hotspots from the control room, mock as fallback).
+- **Routes** come from OSM indoor data (Overpass). They are fetched in advance for Münchner Freiheit and Garching-FZ and stored as a JSON graph; the route itself is computed in the browser. Other stations keep the 3 text steps.
+- **Targets:**
+  - "Aussteigen" goes to the safe waiting point in the mezzanine (staffed, camera). A button "Lieber raus auf die Straße" leads to an exit instead.
+  - "Security" goes to the meeting point.
+  - "Notrufpunkt" goes to the platform elevator.
+- **Choosing the exit depends on the reason:**
+  - "Fühle mich verfolgt": towards people (a busy exit, staff).
+  - Any other reason, or none: away from crowds.
+  - A reported hotspot with "Betrunkene Gruppe" or "Belästigung" never counts as a safe crowd.
+- If MVG reports a broken escalator or elevator, the route avoids it and shows a hint.
+
 **Build**: 10 issues as sub-issues of a `wayfinder:map` issue, labelled `wayfinder:task`, with native GitHub dependencies. Issue 1 blocks 2/3/4/6. The rule tables (position, options + copy, action texts, selfcheck cases) are acceptance criteria in the issues.
 
 ## 13. Sources

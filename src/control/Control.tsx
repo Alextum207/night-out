@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
-import type { Action, ActionKind, DemoPayload, Hotspot, Route, ScenarioId, Tap } from '../types'
+import type { Action, ActionKind, Crowd, DemoPayload, Hotspot, Route, ScenarioId, Tap } from '../types'
 import { connect, transport } from '../realtime'
 import { isVirtual, now, onClock, setVirtual } from '../clock'
 import { groupTaps } from '../hotspots'
@@ -8,6 +8,12 @@ import { where } from '../position'
 import { directions, EVENTS, nearestTeam, SECURITY_TEAMS, SNAPSHOTS } from '../mock'
 
 const hhmm = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+
+// Reported groups go to the riders' maps. Drunk groups / harassment are never a safe crowd.
+const toCrowds = (cards: Hotspot[]): Crowd[] => cards.map((c) => ({
+  lat: c.lat, lng: c.lng, label: `${c.line}: ${c.sessions} Meldung${c.sessions > 1 ? 'en' : ''}`,
+  kind: c.topReason === 'Betrunkene Gruppe' || c.topReason === 'Belästigung' ? 'unsafe' : 'busy',
+}))
 
 const ACTIONS: { kind: ActionKind; label: string }[] = [
   { kind: 'security', label: 'Security' },
@@ -65,6 +71,7 @@ export default function Control() {
         if (d) rt.send('demo', { ...d, virtualNow: now(), reset: false, to: sessionId })
         const a = trainKey && lastAction.current.get(trainKey)
         if (a) rt.send('action', { ...a, target: { sessionId } })
+        rt.send('crowds', { crowds: crowdsRef.current })
       }),
     ]
     const off = onClock(() => tick((x) => x + 1))
@@ -80,6 +87,11 @@ export default function Control() {
   const { hotspots, singles } = groupTaps(taps, t)
   const cards = [...hotspots, ...singles]
   const isResolved = (c: Hotspot) => (resolvedAt[c.trainKey] ?? -1) >= c.lastAt
+  const crowds = toCrowds(cards.filter((c) => !isResolved(c)))
+  const crowdsKey = JSON.stringify(crowds)
+  const crowdsRef = useRef(crowds)
+  crowdsRef.current = crowds
+  useEffect(() => { rt.send('crowds', { crowds: JSON.parse(crowdsKey) }) }, [rt, crowdsKey])
 
   const act = (kind: ActionKind, c: Hotspot) => {
     const a = actionFor(kind, c)

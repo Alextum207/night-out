@@ -10,7 +10,11 @@ export type Stop = {
   dep: number // planned departure (arrival time for the last stop of a leg)
   escalatorOut: boolean
   elevatorOut: boolean
+  platform?: number // MVG track number, used to find the platform in the indoor graph
 }
+
+// A crowd on the rider's map. unsafe = reported drunk group / harassment, never a safe place to go.
+export type Crowd = { lat: number; lng: number; kind: 'busy' | 'unsafe'; label: string }
 
 export type Leg = {
   line: string // "U6"
@@ -36,7 +40,7 @@ export type Position = {
 export type ScenarioId = 'arena' | 'garching'
 
 export type OptionKind = 'stepOut' | 'move' | 'security' | 'nextTrain'
-export type Option = { kind: OptionKind; title: string; detail: string }
+export type Option = { kind: OptionKind; title: string; detail: string; target?: 'wait' | 'security' | 'emergency' | 'frontCar' }
 
 // rider -> control. Re-sent with the same sessionId whenever reasons change.
 export type Tap = {
@@ -90,5 +94,6 @@ export type Events = {
   action: Action
   demo: DemoPayload
   hello: { sessionId: string; trainKey: string | null }
+  crowds: { crowds: Crowd[] } // control -> riders: reported groups for the rider's map and exit choice
 }
 export type EventName = keyof Events

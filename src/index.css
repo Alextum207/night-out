@@ -26,3 +26,30 @@ body {
 .pulse {
   animation: pulse-ring 1.6s ease-in-out infinite;
 }
+
+/* Rider navigation map */
+.poi {
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font: 600 12px/1.4 system-ui, sans-serif;
+  color: white;
+  background: #334155;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+}
+.poi-step { background: #6d28d9; }
+.poi-level { background: #0f172a; border-color: #a78bfa; color: #ddd6fe; }
+.poi-police { background: #1d4ed8; }
+.poi-security { background: #0369a1; }
+.poi-unsafe { background: #dc2626; }
+.poi-busy { background: #b45309; }
+.poi-goal { background: #059669; }
+.me-dot {
+  width: 18px; height: 18px; transform: translate(-50%, -50%);
+  border-radius: 9999px; background: white; border: 4px solid #7c3aed;
+  box-shadow: 0 0 0 6px rgb(124 58 237 / 0.35);
+}
+@keyframes pulse-line { 50% { stroke-opacity: 0.45; } }
+.pulse-line { animation: pulse-line 1.2s ease-in-out infinite; }
