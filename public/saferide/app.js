@@ -87,6 +87,15 @@ let map = null, selected = null, theme = 'light', cardRefresh = null, openSheetI
 let SHARED = []; // reports + Way Out hotspots from the control room (src/saferide/main.tsx)
 let ALERTS = [], WEATHER = null, SOURCES = { mvg: 'loading', news: 'loading', weather: 'loading' }, alertsUpdated = null;
 let ROUTE = { from: null, to: null, mode: null, results: null, chosen: null, trip: null };
+const SOCIAL = {
+  sharing: false, started: 0, ends: 0, selected: 'mia', demoStarted: Date.now(),
+  friends: [
+    { id: 'mia', name: 'Mia', initial: 'M', color: '#6755D9', line: 'U6', to: 'Garching', phase: .48, speed: 8.8, battery: 74, carriage: 'Wagen 2 · ruhig', shared: 'seit 22 Min' },
+    { id: 'jonas', name: 'Jonas', initial: 'J', color: '#167A5A', line: 'U2', to: 'Feldmoching', phase: .36, speed: 8.2, battery: 41, carriage: 'Wagen 4 · mittel', shared: 'seit 8 Min' },
+    { id: 'lea', name: 'Lea', initial: 'L', color: '#D56A3D', walking: true, station: 'Marienplatz', battery: 88, shared: 'seit 4 Min' },
+  ],
+};
+let FRIEND_MARKERS = new Map(), socialTimer = null;
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -671,7 +680,7 @@ function estimateTick() {
     renderTrack();
   }
 }
-function startDemoRide() {
+function startDemoRide(silent = false) {
   if (Loc.watch != null) try { navigator.geolocation.clearWatch(Loc.watch); } catch (e) {}
   const pd = PD.find(p => p.line === 'U3' && p.to === 'Moosach'); if (!pd) return;
   const k0 = pd.names.indexOf('Odeonsplatz'), kTunnelA = pd.names.indexOf('Universität'), kTunnelB = pd.names.indexOf('Münchner Freiheit');
@@ -697,7 +706,7 @@ function startDemoRide() {
     pushFix({ t: now, lng: lng + n(), lat: lat + n() * .7, acc: 12 + Math.random() * 10, speed: null });
   }, 1000);
   closeSheet(); closeCard(); renderTrack();
-  toast('Demo-Fahrt: Du wartest am Odeonsplatz und fährst dann mit der U3 Richtung Moosach, in 3-facher Geschwindigkeit.', 4800);
+  if (!silent) toast('Demo-Fahrt: Du wartest am Odeonsplatz und fährst dann mit der U3 Richtung Moosach, in 3-facher Geschwindigkeit.', 4800);
 }
 function locStopDemo(silent) {
   clearInterval(Loc.demoTimer); Loc.demoTimer = null;
@@ -978,13 +987,13 @@ function openCard(html) { const c = $('#card'); c.innerHTML = html; c.classList.
 function closeCard() { $('#card').classList.remove('open'); selected = null; cardRefresh = null; setCardH(); applyHighlight(); }
 const closeX = `<button class="closebtn" type="button" data-cardclose aria-label="Schließen">${ICON.close}</button>`;
 
-const TAB_OF = { filters: 'map', route: 'route', alerts: 'alerts', report: 'report', profile: 'map', panic: 'map', track: 'map' };
+const TAB_OF = { filters: 'map', route: 'route', share: 'map', friends: 'friends', alerts: 'alerts', report: 'report', profile: 'map', panic: 'map', track: 'map' };
 function openSheet(id) {
   closeCard();
   $$('.sheet.open').forEach(s => { if (s.id !== 'sheet-picker') s.classList.remove('open'); });
   const s = $('#sheet-' + id); if (!s) return;
   if (id === 'panic') { panicCache.key = null; dropPin(); }
-  ({ route: renderRouteSheet, alerts: renderAlerts, report: renderReport, profile: renderProfile, panic: renderPanic, track: renderTrackSheet }[id] || (() => {}))();
+  ({ route: renderRouteSheet, share: renderShareSheet, friends: renderFriends, alerts: renderAlerts, report: renderReport, profile: renderProfile, panic: renderPanic, track: renderTrackSheet }[id] || (() => {}))();
   s.classList.add('open'); s.querySelector('.body').scrollTop = 0; $('#scrim').classList.add('on');
   openSheetId = id; document.body.classList.add('sheet-open'); document.body.classList.toggle('panic-open', id === 'panic'); setTab(TAB_OF[id] || 'map');
   setTimeout(() => { const f = s.querySelector('[data-close]'); if (f) f.focus({ preventScroll: true }); }, 60);
@@ -1040,23 +1049,24 @@ function renderFocusChip() {
 }
 function renderCond() {
   renderFocusChip();
+  const act = activeAlerts(), hot = act.some(a => a.sev === 3);
+  const tc = $('#tabCount'); if (tc) { tc.hidden = !act.length; tc.textContent = act.length; tc.style.background = hot ? 'var(--danger)' : ''; }
   const el = $('#cond');
+  if (!el) return;
   if (!WEATHER) { el.innerHTML = '<span class="w">Lage wird geprüft…</span>'; return; }
   const night = Date.now() > WEATHER.sunset || mzHour() < 6;
-  const act = activeAlerts(), hot = act.some(a => a.sev === 3);
   el.innerHTML = `<span class="w">${WEATHER.unknown ? '<span class="tx">Keine Wetterdaten</span>' : `${wxIcon(WEATHER.kind, night)}<b>${WEATHER.temp}°</b><span class="tx">${esc(WEATHER.text)}</span>`}</span><span class="sep"></span>
     <span class="a"><span class="n ${hot ? 'hot' : ''}">${act.length}</span>${act.length === 1 ? 'Hinweis' : 'Hinweise'}</span>`;
-  const tc = $('#tabCount'); tc.hidden = !act.length; tc.textContent = act.length; tc.style.background = hot ? 'var(--danger)' : '';
 }
 function refreshAlertsEverywhere() { renderCond(); updateZonesLayer(); if (openSheetId === 'alerts') renderAlerts(); if (openSheetId === 'profile') renderProfile(); }
 
 // ---------- tracking pill + sheet
 function trackText() {
   if (Loc.mode === 'off') {
-    if (Loc.status === 'error') return { l1: 'Standort nicht verfügbar', l2: 'Tippen für die Demo-Fahrt', live: false };
-    return { l1: 'Standort ist aus', l2: 'Tippen, um deinen Zug zu erkennen', live: false };
+    if (Loc.status === 'error') return { l1: 'Standort nicht verfügbar', l2: 'Tippen für Optionen', live: false };
+    return { l1: 'Standort verwenden', l2: 'Für Fahrtbegleitung und Hinweise', live: false };
   }
-  if (Loc.status === 'locating') return { l1: 'Suche dich…', l2: Loc.mode === 'demo' ? 'Demo-Fahrt' : 'Warte auf GPS', live: true };
+  if (Loc.status === 'locating') return { l1: 'Standort wird erkannt…', l2: Loc.mode === 'demo' ? 'Verkehrsmittel wird erkannt' : 'Warte auf GPS', live: true };
   if (myPosition() && !inArea(myPosition())) return { l1: 'Du bist außerhalb von München', l2: 'Routen starten am Odeonsplatz, bis du zurück bist', live: true };
   const near = nearestStation(myPosition(), 160);
   const m = Loc.match;
@@ -1066,9 +1076,9 @@ function trackText() {
     return { badge: m.line, l1: `Richtung ${m.to}`, l2: `${m.atStop ? 'An' : 'Nächster Halt'} ${nxt}${m.atStop ? '' : ', ' + when}${Loc.estimated ? ', geschätzt' : ''}`, live: true };
   }
   if (Loc.status === 'vehicle') return { l1: `Unterwegs mit ${Math.round(Loc.speed)} km/h`, l2: Loc.cands.length ? 'Welche Linie fährst du? Tippen zum Auswählen' : 'Linie wird erkannt…', live: true };
-  if (Loc.status === 'walking') return { l1: near ? `Zu Fuß bei ${near.name}` : 'Zu Fuß', l2: tripHint() || (Loc.mode === 'demo' ? 'Demo-Fahrt' : 'Standort ist live'), live: true };
+  if (Loc.status === 'walking') return { l1: near ? `Zu Fuß bei ${near.name}` : 'Zu Fuß', l2: tripHint() || 'Standort ist live', live: true };
   if (Loc.rough && Loc.mode === 'gps') return { l1: 'Standort ist ungenau', l2: `±${Math.round(Loc.last.acc)} m. Geh ins Freie oder warte auf GPS`, live: true };
-  return { l1: near ? `An ${near.name}` : 'Stehst still', l2: tripHint() || (Loc.mode === 'demo' ? 'Demo-Fahrt, warte auf die U3' : 'Standort ist live'), live: true };
+  return { l1: near ? `An ${near.name}` : 'Stehst still', l2: tripHint() || (Loc.mode === 'demo' ? 'U3 wird automatisch erkannt' : 'Standort ist live'), live: true };
 }
 function tripHint() {
   const r = ROUTE.trip; if (!r) return '';
@@ -1101,6 +1111,97 @@ function renderTrackSheet() {
   setHTML($('#trkBtns'), `${on ? `<button class="btn block" type="button" data-loc="stop">Ortung beenden</button>` : `<button class="btn primary block" type="button" data-loc="start">Standort einschalten</button>`}
       ${Loc.mode !== 'demo' ? `<button class="btn block" type="button" data-loc="demo">Demo-Fahrt mit der U3 starten</button>` : ''}
       ${ROUTE.trip ? `<button class="btn block" type="button" data-act="endtrip">Fahrt beenden</button>` : ''}`);
+}
+
+// ---------- fast sharing + friends demo
+function currentShareContext() {
+  const dm = Loc.demo;
+  if (dm) {
+    const e = Math.max(0, Math.min(dm.pd.T, dm.eAt(Date.now()))), p = posAt(dm.pd, e), next = Math.max(0, Math.min(dm.pd.names.length - 1, p.next));
+    return { line: dm.pd.line, direction: dm.pd.to, next: dm.pd.names[next], eta: Math.max(0, Math.round((dm.pd.arr[next] - e) / 60)), accuracy: Loc.estimated ? 'Geschätzt' : 'Live · ±18 m' };
+  }
+  const m = Loc.match;
+  if (m && m.pd) return { line: m.line, direction: m.to, next: m.pd.names[m.next], eta: Math.max(0, Math.round(m.eta / 60)), accuracy: Loc.estimated ? 'Geschätzt' : 'Live' };
+  const near = nearestStation(myPosition() || DEMO_POS, 400);
+  return { line: null, direction: 'Zu Fuß', next: near ? near.name : 'Odeonsplatz', eta: 0, accuracy: Loc.mode === 'gps' ? 'Live' : 'Bereit' };
+}
+function renderShareButton() {
+  const b = $('#btnShare'); if (!b) return;
+  const c = currentShareContext(), left = SOCIAL.sharing ? Math.max(1, Math.ceil((SOCIAL.ends - Date.now()) / 60000)) : 0;
+  b.classList.toggle('sharing', SOCIAL.sharing);
+  b.setAttribute('aria-label', SOCIAL.sharing ? 'Geteilten Live-Standort verwalten' : 'Live-Standort teilen');
+  setHTML(b, `<span class="trip-launch-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 000 8.4M16.2 7.8a6 6 0 010 8.4M4.6 4.6a10.5 10.5 0 000 14.8M19.4 4.6a10.5 10.5 0 010 14.8"/></svg></span>
+    <span class="trip-launch-copy"><small>${SOCIAL.sharing ? `${esc(c.line || 'Live')} · ${left} Min verbleibend` : 'Mit Linie, Richtung & nächstem Halt'}</small><strong>${SOCIAL.sharing ? 'Du teilst deinen Standort' : 'Live-Standort teilen'}</strong></span>
+    <svg class="trip-launch-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>`);
+}
+function beginSharing() {
+  if (!SOCIAL.sharing) {
+    SOCIAL.sharing = true; SOCIAL.started = Date.now(); SOCIAL.ends = Date.now() + 60 * 60000;
+    renderShareButton();
+  }
+  openSheet('share');
+}
+function stopSharing() {
+  SOCIAL.sharing = false; SOCIAL.started = 0; SOCIAL.ends = 0; closeSheet(); renderShareButton(); toast('Teilen beendet.');
+}
+function renderShareSheet() {
+  const b = $('#shareBody'); if (!b) return; const c = currentShareContext();
+  const left = Math.max(1, Math.ceil((SOCIAL.ends - Date.now()) / 60000));
+  b.innerHTML = `<div class="share-status"><span class="share-pulse" aria-hidden="true"></span><span><strong>Live geteilt</strong><span>Mia und Jonas können dich sehen · noch ${left} Min</span></span></div>
+    <div class="share-context">
+      <div class="share-context-main">${c.line ? badge(c.line, 'lg') : `<span class="friend-avatar" style="--friend-color:#0878ff">Du</span>`}<span><small>Automatisch erkannt</small><strong>${c.line ? `${esc(c.line)} Richtung ${esc(c.direction)}` : esc(c.direction)}</strong></span></div>
+      <div class="share-meta-grid"><div><small>Nächster Halt</small><strong>${esc(c.next)}</strong></div><div><small>Ankunft</small><strong>${c.eta > 0 ? `in ${c.eta} Min` : 'jetzt'}</strong></div><div><small>Signal</small><strong>${esc(c.accuracy)}</strong></div></div>
+    </div>
+    <div class="friends-summary"><span class="viewer-stack"><span class="mini-avatar" style="--friend-color:#6755D9">M</span><span class="mini-avatar" style="--friend-color:#167A5A">J</span></span><span><strong>Sicherheitskreis</strong><small>Nur eingeladene Personen · Link endet automatisch</small></span></div>
+    <div class="btns"><button class="btn primary block" type="button" data-share-copy>Einladungslink kopieren</button><button class="btn block" type="button" data-share-extend>Um 1 Stunde verlängern</button><button class="btn block" type="button" data-share-stop>Teilen beenden</button></div>
+    <p class="note">Mitgeteilt werden Standort, Verkehrsmittel, Linie, Fahrtrichtung, nächster Halt und ob die Position im Tunnel geschätzt ist. Dein genauer Verlauf bleibt auf diesem Handy.</p>`;
+}
+function friendPath(f) {
+  return PD.find(p => p.line === f.line && (!f.to || p.to.includes(f.to))) || PD.find(p => p.line === f.line) || PD[0];
+}
+function friendSnapshot(f, now = Date.now()) {
+  if (f.walking) {
+    const s = stationByName(f.station) || ST[Object.keys(ST)[0]], t = (now - SOCIAL.demoStarted) / 1000;
+    return { ...f, lng: s.lng + Math.sin(t / 9) * .00035, lat: s.lat + Math.cos(t / 11) * .00022, line: null, direction: 'Zu Fuß zum Viktualienmarkt', next: 'Marienplatz', eta: 3, accuracy: 'Live · ±9 m', status: 'Zu Fuß' };
+  }
+  const pd = friendPath(f), total = pd.cum[pd.cum.length - 1], elapsed = (now - SOCIAL.demoStarted) / 1000;
+  const d = (f.phase * total + elapsed * f.speed) % total, p = posAlong(pd, d);
+  let next = pd.sd.findIndex(x => x > d + 12); if (next < 0) next = pd.sd.length - 1;
+  const eta = Math.max(1, Math.round((pd.sd[next] - d) / Math.max(5, f.speed) / 60));
+  return { ...f, pd, lng: p.lng, lat: p.lat, direction: `Richtung ${pd.to}`, next: pd.names[next], eta, accuracy: 'Live · ±12 m', status: `${f.line} · ${pd.to}` };
+}
+function updateFriendMarkers() {
+  if (!map) return;
+  for (const f of SOCIAL.friends) {
+    const s = friendSnapshot(f); let rec = FRIEND_MARKERS.get(f.id);
+    if (!rec) {
+      const el = document.createElement('button'); el.type = 'button'; el.className = `friend-marker${f.walking ? ' walking' : ''}`; el.style.setProperty('--friend-color', f.color); el.textContent = f.initial; el.setAttribute('aria-label', `${f.name} auf der Karte`);
+      el.addEventListener('click', e => { e.stopPropagation(); SOCIAL.selected = f.id; updateFriendMarkers(); openSheet('friends'); });
+      rec = { el, marker: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([s.lng, s.lat]).addTo(map) }; FRIEND_MARKERS.set(f.id, rec);
+    } else rec.marker.setLngLat([s.lng, s.lat]);
+    rec.el.classList.toggle('selected', SOCIAL.selected === f.id && openSheetId === 'friends');
+  }
+}
+function renderFriends() {
+  const b = $('#friendsBody'); if (!b) return; const snaps = SOCIAL.friends.map(f => friendSnapshot(f)), cur = snaps.find(f => f.id === SOCIAL.selected) || snaps[0];
+  b.innerHTML = `<div class="friend-detail">
+      <div class="friend-detail-head"><span class="friend-avatar" style="--friend-color:${cur.color}">${cur.initial}</span><span><strong>${esc(cur.name)}</strong><span>${cur.line ? `${badge(cur.line, 'xs')} ${esc(cur.direction)}` : esc(cur.direction)}</span><small>${esc(cur.shared)} · ${cur.accuracy}</small></span></div>
+      <div class="friend-detail-grid"><div><small>Nächster Halt</small><strong>${esc(cur.next)}</strong></div><div><small>Dort in</small><strong>${cur.eta} Min</strong></div><div><small>Unterwegs</small><strong>${esc(cur.carriage || 'Zu Fuß')}</strong></div><div><small>Akku</small><strong>${cur.battery}%</strong></div></div>
+      <button class="btn primary block" type="button" data-friend-focus="${cur.id}">Auf Karte zeigen</button>
+    </div>
+    <div class="friends-list">${snaps.map(f => `<button class="friend-row" type="button" data-friend="${f.id}" aria-current="${f.id === cur.id}"><span class="friend-avatar" style="--friend-color:${f.color}">${f.initial}</span><span class="friend-copy"><strong>${esc(f.name)}</strong><span>${f.line ? `${esc(f.line)} · ${esc(f.direction)}` : esc(f.direction)}</span><small>Nächster Halt: ${esc(f.next)} · ${esc(f.shared)}</small></span><span class="friend-eta"><b>${f.eta} Min</b>${f.battery}%</span></button>`).join('')}</div>`;
+}
+function startSocialDemo() {
+  SOCIAL.demoStarted = Date.now(); updateFriendMarkers(); renderShareButton();
+  clearInterval(socialTimer); socialTimer = setInterval(() => {
+    if (SOCIAL.sharing && Date.now() >= SOCIAL.ends) {
+      SOCIAL.sharing = false; SOCIAL.started = 0; SOCIAL.ends = 0;
+      if (openSheetId === 'share') closeSheet();
+    }
+    updateFriendMarkers(); renderShareButton();
+    if (openSheetId === 'share') renderShareSheet();
+    if (openSheetId === 'friends' && Date.now() % 5000 < 1100) renderFriends();
+  }, 1000);
 }
 
 // ---------- line / station / vehicle / zone cards
@@ -1189,7 +1290,7 @@ function renderAlerts() {
 
 // ---------- route sheet + card
 function onboardOrigin() { const m = Loc.match; if (Loc.status !== 'vehicle' || !m || !m.pd) return null; return { onboard: { pi: m.pd.i, k: Math.max(1, m.next), eta: Math.max(20, m.eta || 0), line: m.line } }; }
-function originLabel() { if (ROUTE.from && ROUTE.from.sid) return stName(ROUTE.from.sid); const ob = onboardOrigin(); if (ob) return `Mein Standort (in der ${Loc.match.line} Richtung ${Loc.match.to})`; const p = myPosition(); return p ? (inArea(p) ? 'Mein Standort' : 'Odeonsplatz (du bist außerhalb von München)') : 'Odeonsplatz (Standort ist aus)'; }
+function originLabel() { if (ROUTE.from && ROUTE.from.sid) return stName(ROUTE.from.sid); const ob = onboardOrigin(); if (ob) return `Mein Standort (in der ${Loc.match.line} Richtung ${Loc.match.to})`; const p = myPosition(); return p ? (inArea(p) ? 'Mein Standort' : 'Odeonsplatz · Demo-Start') : 'Odeonsplatz · Demo-Start'; }
 function originObj() { if (ROUTE.from && ROUTE.from.sid) return ROUTE.from; const ob = onboardOrigin(); if (ob) return ob; let p = myPosition(); if (!inArea(p)) p = DEMO_POS; return { lng: p[0], lat: p[1] }; }
 function renderRouteSheet() {
   const b = $('#routeBody'); const mode = ROUTE.mode || P.routeDefault;
@@ -1211,8 +1312,8 @@ function renderRouteSheet() {
       <button class="field" type="button" data-rfield="to">${ICON.pin}<span><span class="lbl">Nach</span><span class="val ${ROUTE.to ? '' : 'empty'}">${ROUTE.to ? esc(stName(ROUTE.to)) : 'Haltestelle wählen'}</span></span></button>
       ${ROUTE.to ? `<button class="swap" type="button" data-rswap aria-label="Start und Ziel tauschen">${ICON.swap}</button>` : ''}
     </div>
-    ${quick.length ? `<div class="chiprow">${quick.join('')}</div>` : (P.home ? '' : `<p class="note">Leg im Profil deine Heimhaltestelle fest, dann planst du den Heimweg mit einem Tipp.</p>`)}
-    <div class="seg wide" role="group" aria-label="Routenwahl"><button type="button" data-rmode="safe" aria-pressed="${mode === 'safe'}">Am sichersten</button><button type="button" data-rmode="fast" aria-pressed="${mode === 'fast'}">Am schnellsten</button></div>
+    ${quick.length ? `<div class="chiprow">${quick.join('')}</div>` : ''}
+    ${ROUTE.to ? `<div class="seg wide" role="group" aria-label="Routenwahl"><button type="button" data-rmode="safe" aria-pressed="${mode === 'safe'}">Sicherer</button><button type="button" data-rmode="fast" aria-pressed="${mode === 'fast'}">Schneller</button></div>` : `<p class="route-intro">Wähle ein Ziel. SafeRide vergleicht schnelle Verbindungen mit ruhigeren Wegen und aktuellen Hinweisen.</p>`}
     ${res}`;
 }
 function legSummary(r) { return r.legs.map(l => l.type === 'walk' ? `<span class="walkbadge" title="Zu Fuß">${ICON.walk}</span>` : badge(l.line, 'sm')).join('<span class="ar">›</span>'); }
@@ -1397,26 +1498,27 @@ function replanTrip() {
 }
 
 // ---------- report
-let REP = { size: null, intensity: null };
+const REPORT_TYPES = {
+  safety: { icon: '!', title: 'Unangenehme Situation', sub: 'Belästigung, Verfolgung oder Streit', sev: 2, intensity: 'harassing' },
+  dirty: { icon: '✦', title: 'Verschmutzung', sub: 'Fahrzeug oder Station', sev: 1, intensity: null },
+  broken: { icon: '⌁', title: 'Etwas ist defekt', sub: 'Licht, Tür, Aufzug oder Automat', sev: 1, intensity: null },
+  other: { icon: '…', title: 'Sonstiger Hinweis', sub: 'Kurze allgemeine Meldung', sev: 1, intensity: null },
+};
 function renderReport() {
   const b = $('#reportBody'), p = myPosition(), near = nearestStation(p || map.getCenter().toArray(), 300);
   const where = p ? (near ? `An ${near.name}` : 'An deinem Standort') : (near ? `Bei ${near.name} (Kartenmitte)` : 'In der Kartenmitte');
-  b.innerHTML = `
-    <div class="group"><h3>Wie groß ist die Gruppe?</h3><div class="bigchoices">${[['small', 'Klein', '5–10'], ['medium', 'Mittel', '10–25'], ['large', 'Groß', '25+']].map(([k, l, s]) => `<button type="button" data-rsize="${k}" aria-pressed="${REP.size === k}">${l}<small>${s}</small></button>`).join('')}</div></div>
-    <div class="group"><h3>Wie verhalten sie sich?</h3><div class="bigchoices">${[['loud', 'Laut'], ['aggressive', 'Aggressiv'], ['harassing', 'Belästigend']].map(([k, l]) => `<button type="button" data-rint="${k}" aria-pressed="${REP.intensity === k}">${l}</button>`).join('')}</div></div>
-    <div class="group"><div class="flag">${ICON.pin.replace('<svg', '<svg width="18" height="18"')}<span>${esc(where)}</span></div>
-      <button class="btn primary block" type="button" data-rsend ${REP.size && REP.intensity ? '' : 'disabled style="opacity:.5"'}>Meldung senden</button></div>
-    <p class="note">Anonym, nach 45 Minuten gelöscht. Deine Meldung geht an die Leitstelle und an alle anderen SafeRide-Handys, und sichere Routen meiden die Stelle.</p>`;
+  b.innerHTML = `<p class="report-intro">Einmal tippen. SafeRide fügt Ort und Fahrkontext automatisch hinzu.</p>
+    <div class="report-context">${ICON.pin}<span>${esc(where)}</span></div>
+    <div class="report-actions">${Object.entries(REPORT_TYPES).map(([k, r]) => `<button class="report-action" type="button" data-report-kind="${k}"><span class="report-icon" aria-hidden="true">${r.icon}</span><span><strong>${esc(r.title)}</strong><small>${esc(r.sub)}</small></span><svg class="report-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>`).join('')}</div>
+    <p class="note">Nicht für akute Gefahr. Die Meldung geht anonym an das Verkehrsunternehmen. Im Notfall 110 wählen.</p>`;
 }
-function sendReport() {
+function sendReport(kind) {
+  const cfg = REPORT_TYPES[kind]; if (!cfg) return;
   const p = myPosition() || map.getCenter().toArray(), near = nearestStation(p, 300);
-  const sev = REP.intensity === 'harassing' || (REP.intensity === 'aggressive' && REP.size !== 'small') ? 3 : REP.intensity === 'aggressive' || REP.size === 'large' ? 2 : 1;
-  const sizeTxt = { small: 'Kleine Gruppe', medium: 'Mittlere Gruppe', large: 'Große Gruppe' }[REP.size];
-  const intTxt = { loud: 'laut', aggressive: 'aggressiv', harassing: 'belästigend' }[REP.intensity];
-  const r = { id: 'me-' + Date.now(), kind: 'report', sev, size: REP.size, intensity: REP.intensity, title: `${sizeTxt}, ${intTxt}`, body: near ? `Von dir gemeldet bei ${near.name}.` : 'Von dir gemeldet.', at: p, r: 250,
+  const r = { id: 'me-' + Date.now(), kind: 'report', sev: cfg.sev, size: null, intensity: cfg.intensity, title: cfg.title, body: near ? `Von dir gemeldet bei ${near.name}.` : 'Von dir gemeldet.', at: p, r: 250,
               from: Date.now(), to: Date.now() + 45 * 60000, source: 'Deine Meldung', mine: true };
-  MYREPORTS.push(r); saveJSON(KEY_R, MYREPORTS); ALERTS.push(r); share(r); REP = { size: null, intensity: null };
-  closeSheet(); refreshAlertsEverywhere(); toast('Meldung gesendet. Sichere Routen meiden die Stelle 45 Minuten lang.');
+  MYREPORTS.push(r); saveJSON(KEY_R, MYREPORTS); ALERTS.push(r); share(r);
+  closeSheet(); refreshAlertsEverywhere(); toast(`${cfg.title} wurde an das Verkehrsunternehmen gesendet.`);
 }
 
 // ---------- sharing (window events, bridged to the Way Out channel by src/saferide/main.tsx)
@@ -1434,12 +1536,15 @@ addEventListener('sr:crowds', e => {
 });
 
 // ---------- panic
-// Notfall = Way Out overlay (src/saferide/main.tsx): pin here, control room + options there. This sheet is the escape route.
+// SOS first opens a three-choice decision surface. No alert is sent until the
+// rider explicitly chooses station security or Way Out.
 function startEmergency() {
-  closeSheet(); closeCard(); dropPin();
-  dispatchEvent(new CustomEvent('sr:emergency', { detail: { pin: !!myPosition() } }));
+  closeSheet(); closeCard();
+  dispatchEvent(new CustomEvent('sr:emergency', { detail: { context: currentShareContext() } }));
 }
-addEventListener('sr:escape', () => openSheet('panic'));
+addEventListener('sr:security', () => dropPin('Stationssicherheit kontaktiert', 'Die Leitstelle hat deinen Standort und Fahrkontext erhalten.'));
+addEventListener('sr:escape', () => { dropPin('Way Out aktiviert', 'SafeRide begleitet dich bis zu einem sicheren Ort.'); openSheet('panic'); });
+addEventListener('sr:open-report', () => openSheet('report'));
 addEventListener('sr:unpin', () => undoPin());
 // The control-room scenario train (Way Out): one marker with the line badge; the map flies there when the scenario starts.
 let trainMarker = null, mapReady = false, pendingTrain;
@@ -1452,11 +1557,11 @@ function placeTrain(t) {
 // before the map has loaded, keep the latest train (and its fly-to) for the load handler
 addEventListener('sr:train', e => { if (mapReady) placeTrain(e.detail); else pendingTrain = e.detail; });
 let panicCache = { key: null, html: '' }, PANIC_ALT = null, pinUndo = null;
-function dropPin() {
+function dropPin(title = 'Notfall-Pin', body = 'Geht mit deinem Standort an die Leitstelle.') {
   const p = myPosition(); if (!p) return;
   if (ALERTS.some(a => a.pin && activeNow(a) && metres(a.at, p) < 200)) return;
-  const a = { id: 'pin-' + Date.now(), kind: 'report', sev: 3, title: 'Dein Notfall-Pin', body: 'Gesetzt, als du den Notfall-Modus geöffnet hast. Geht an die Leitstelle.', at: p, r: 220,
-              from: Date.now(), to: Date.now() + 15 * 60000, source: 'Dein Notfall-Pin', mine: true, pin: true };
+  const a = { id: 'pin-' + Date.now(), kind: 'report', sev: 3, title, body, at: p, r: 220,
+              from: Date.now(), to: Date.now() + 15 * 60000, source: title, mine: true, pin: true };
   ALERTS.push(a); MYREPORTS.push(a); saveJSON(KEY_R, MYREPORTS); share(a); pinUndo = { id: a.id, until: Date.now() + 8000 }; panicCache.key = null;
   refreshAlertsEverywhere();
 }
@@ -1485,6 +1590,15 @@ function panicAltRoute() {
   return r;
 }
 function renderPanic() {
+  const b = $('#panicBody'); if (!b) return;
+  const c = currentShareContext(), live = c.line ? `${badge(c.line, 'lg')}<span><small>Du bist unterwegs</small><strong>${esc(c.line)} Richtung ${esc(c.direction)}</strong></span>` : `<span class="friend-avatar" style="--friend-color:#0878ff">Du</span><span><small>Dein Standort</small><strong>${esc(c.direction)}</strong></span>`;
+  b.innerHTML = `<div class="share-status"><span class="share-pulse" aria-hidden="true"></span><span><strong>Way Out ist aktiv</strong><span>Dein Standort wird 15 Minuten mit der Leitstelle geteilt.</span></span></div>
+    <div class="share-context"><div class="share-context-main">${live}</div><div class="share-meta-grid"><div><small>Nächster Halt</small><strong>${esc(c.next)}</strong></div><div><small>Dort in</small><strong>${c.eta > 0 ? `${c.eta} Min` : 'jetzt'}</strong></div><div><small>Position</small><strong>${esc(c.accuracy)}</strong></div></div></div>
+    <div class="escape"><div class="why" style="margin:0">Jetzt</div><div class="big">${c.line ? `Steig am nächsten Halt aus.` : 'Geh zu Menschen und Licht.'}</div><div class="why">${c.line ? `Am ${esc(c.next)} gehst du zur Bahnsteigmitte oder zur roten Notrufsäule.` : 'Bleib in einem hellen, belebten Bereich und suche die nächste Notrufsäule.'}</div></div>
+    <button class="btn primary block" type="button" data-act="security">Stationssicherheit kontaktieren</button>
+    <a class="call" href="tel:110"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>Akute Gefahr: 110</a>`;
+}
+function renderPanicLegacy() {
   const b = $('#panicBody'), m = Loc.match;
   if (!b.querySelector('#pnEscape')) b.innerHTML = `<a class="call" href="tel:110"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>110 anrufen</a>
     <button class="btn primary block" type="button" data-act="emergency" style="margin:10px 0">Zurück zum Notfall</button>
@@ -1557,6 +1671,7 @@ function renderProfile() {
   const b = $('#profileBody'); if (!b) return;
   const srcRow = (name, st, sub) => `<div class="srcrow"><b>${name}</b><span class="state ${st === 'live' ? 'live' : ''}">${st === 'live' ? 'Live' : st === 'loading' ? 'Lädt' : st === 'na' ? 'Nur gehostet' : st === 'line' ? 'Ersatz' : st === 'off' ? 'Nicht verfügbar' : 'Demo-Daten'}</span><small>${sub}</small></div>`;
   b.innerHTML = `
+    <div class="group"><h3>Karte</h3><button class="field" type="button" data-openfilters><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span><span class="lbl">Linien und Ansicht</span><span class="val">U-Bahn, S-Bahn, Tram und Kartendetails</span></span></button></div>
     <div class="group"><h3>Zuhause</h3>
       <button class="field" type="button" data-phome>${ICON.pin}<span><span class="lbl">Heimhaltestelle</span><span class="val ${P.home ? '' : 'empty'}">${P.home && ST[P.home] ? esc(ST[P.home].name) : 'Heimhaltestelle wählen'}</span></span></button>
       <p>Für „Zuhause“ in Route, Hinweise auf deinem Heimweg und die Fluchtroute im Notfall-Modus.</p></div>
@@ -1601,7 +1716,8 @@ function buildFilterUI() {
 const TRAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 3h6M12 3v3M8 21l2-3M16 21l-2-3M6 12h12"/></svg>';
 function renderModeRail() {
   const el = $('#modeRail'); if (!el) return;
-  setHTML(el, MODES.filter(m => LINES.some(L => L.mode === m)).map(m => { const [g, c] = MODE_GLYPH[m], on = !!F.modes[m];
+  const settings = `<button class="rail-settings" type="button" data-open-settings aria-label="Profil, Einstellungen und Kartenfilter" title="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="8" r="3"/><path d="M4 18c1-3 3-4.5 6-4.5 1.4 0 2.6.3 3.6 1"/><path d="M17 13v8M14 16h6"/></svg></button>`;
+  setHTML(el, settings + MODES.filter(m => LINES.some(L => L.mode === m)).map(m => { const [g, c] = MODE_GLYPH[m], on = !!F.modes[m];
     return `<button type="button" data-railmode="${m}" aria-pressed="${on}" aria-label="${MODE_LABEL[m]}: ${on ? 'sichtbar, tippen zum Ausblenden' : 'ausgeblendet, tippen zum Einblenden'}" title="${MODE_LABEL[m]}"><span class="g ${m}" style="--c:${c}">${m === 'TRAM' ? TRAM_SVG : g}</span></button>`; }).join(''));
 }
 function syncFilterUI() {
@@ -1613,7 +1729,7 @@ function syncFilterUI() {
   $$('.linebtn').forEach(b => b.setAttribute('aria-pressed', String(base.has(b.dataset.line))));
   for (const G of GROUPS) { const el = $(`[data-count="${G.key}"]`); if (!el) continue; const ls = LINES.filter(G.pick); el.textContent = ls.length ? `${ls.filter(L => vis.has(L.line)).length} von ${ls.length} sichtbar` : 'Noch keine Daten'; }
   $('#tStations').checked = F.stations; $('#tVehicles').checked = F.vehicles; $('#tZones').checked = F.zones;
-  $('#btnFilters').classList.toggle('has-dot', F.view !== 'basic' || MODES.some(m => !F.modes[m] && LINES.some(L => L.mode === m)) || !F.stations || !F.vehicles || !F.zones);
+  $('.rail-settings')?.classList.toggle('has-dot', F.view !== 'basic' || MODES.some(m => !F.modes[m] && LINES.some(L => L.mode === m)) || !F.stations || !F.vehicles || !F.zones);
 }
 function renderSearch(q) {
   const box = $('#searchResults'); q = q.trim().toLowerCase().replace(/\s+/g, '');
@@ -1651,6 +1767,16 @@ function bindUI() {
     if (t.hasAttribute('data-close')) { closeSheet(); return; }
     if (t.hasAttribute('data-pickclose')) { closePicker(); return; }
     if (t.hasAttribute('data-cardclose')) { if (selected && selected.type === 'route' && !ROUTE.trip) drawRoute(null); closeCard(); return; }
+    if (t.hasAttribute('data-share-copy')) { toast('Einladungslink kopiert. Er ist 60 Minuten gültig.'); return; }
+    if (t.hasAttribute('data-share-extend')) { SOCIAL.ends += 60 * 60000; renderShareSheet(); renderShareButton(); toast('Um 1 Stunde verlängert.'); return; }
+    if (t.hasAttribute('data-share-stop')) { stopSharing(); return; }
+    if (t.hasAttribute('data-open-settings')) { openSheet('profile'); return; }
+    if (t.hasAttribute('data-openfilters')) { openSheet('filters'); return; }
+    if (d.friend || d.friendFocus) {
+      const id = d.friend || d.friendFocus, f = SOCIAL.friends.find(x => x.id === id); if (!f) return;
+      SOCIAL.selected = id; const s = friendSnapshot(f); updateFriendMarkers(); map.flyTo({ center: [s.lng, s.lat], zoom: 14.7, duration: reduced() ? 0 : 800 });
+      if (d.friendFocus) closeSheet(); else renderFriends(); return;
+    }
     if (d.tab) { if (d.tab === 'map') { closeSheet(); closeCard(); } else openSheet(d.tab); return; }
     if (d.pick) { const cb = pickCb; closePicker(); if (cb) cb(d.pick); return; }
     // cards
@@ -1666,6 +1792,7 @@ function bindUI() {
     if (d.act === 'dismisszone') { if (ROUTE.trip) { ROUTE.trip.dismissed.add(d.z); tripTick(); } return; }
     if (d.act === 'usealt') { if (PANIC_ALT && ROUTE.trip) { const dest = ROUTE.trip.dest; startTrip(PANIC_ALT, dest, 'safe'); panicCache.key = null; toast('Auf die sicherere Route gewechselt.'); } return; }
     if (d.act === 'unpin') { undoPin(); return; }
+    if (d.act === 'security') { dispatchEvent(new CustomEvent('sr:security')); toast('Stationssicherheit hat deinen Standort und Fahrkontext erhalten.'); renderPanic(); return; }
     if (d.act === 'emergency') { closeSheet(); return; } // closeSheet reopens the overlay
     if (d.act === 'focustoggle') { if (ROUTE.trip) { ROUTE.trip.focus = !ROUTE.trip.focus; applyFilters(); renderCond(); } return; }
     // route sheet
@@ -1684,9 +1811,7 @@ function bindUI() {
       else if ((a.lines || []).length && LINE[a.lines[0]]) fitLine(a.lines[0]);
       alertCard(a.id); return; }
     // report
-    if (d.rsize) { REP.size = d.rsize; renderReport(); return; }
-    if (d.rint) { REP.intensity = d.rint; renderReport(); return; }
-    if (t.hasAttribute('data-rsend')) { if (REP.size && REP.intensity) sendReport(); return; }
+    if (d.reportKind) { sendReport(d.reportKind); return; }
     // profile
     if (t.hasAttribute('data-phome')) { openPicker('Heimhaltestelle', sid => { P.home = sid; saveP(); renderProfile(); }); return; }
     if (d.padd) { openPicker(d.padd === 'avoided' ? 'Haltestelle meiden' : 'Bevorzugte Haltestelle', sid => { if (!P[d.padd].includes(sid)) togglePref(d.padd, sid); renderProfile(); }); return; }
@@ -1710,9 +1835,8 @@ function bindUI() {
     if (t.id === 'pDemo') { P.demo = t.checked; saveP(); loadMonitoring().then(() => { if (ROUTE.to) computeRoutes(); }); renderProfile(); }
     if (t.id === 'pTrack') { if (t.checked) locStart(true); else locStop(); setTimeout(renderProfile, 400); }
   });
-  $('#btnFilters').addEventListener('click', () => openSheet('filters'));
-  $('#btnProfile').addEventListener('click', () => openSheet('profile'));
-  $('#cond').addEventListener('click', () => openSheet('alerts'));
+  $('#btnShare').addEventListener('click', beginSharing);
+  $('#cond')?.addEventListener('click', () => openSheet('alerts'));
   $('#btnPanic').addEventListener('click', startEmergency);
   $('#btnTrack').addEventListener('click', () => openSheet('track'));
   $('#scrim').addEventListener('click', () => { if ($('#sheet-picker').classList.contains('open')) closePicker(); else closeSheet(); });
@@ -1754,7 +1878,10 @@ async function boot() {
     setInterval(() => { renderCond(); updateZonesLayer(); if (P.style === 'auto' && wantedTheme() !== theme) applyTheme(); }, 30000);
     loadMonitoring();
     setInterval(loadMonitoring, 120000);
-    if (P.tracking) locStart(false);
+    // The prototype opens already alive: the user's U3 ride and friends move
+    // immediately, with no permission prompt or separate "start demo" step.
+    startDemoRide(true);
+    startSocialDemo();
   });
   map.on('dragstart', () => { if (Loc.follow) { Loc.follow = false; renderTrack(); } });
   map.on('click', e => {
@@ -1774,7 +1901,7 @@ async function boot() {
     const ids = ['veh-icon', 'veh-dot', 'zones-icon', 'st-major', 'st-minor', 'lines-day', 'lines-night'].filter(id => map.getLayer(id));
     map.getCanvas().style.cursor = map.queryRenderedFeatures(box, { layers: ids }).length ? 'pointer' : '';
   });
-  window.__sr = { ST, PD, LINE, planRoutes, Loc, ALERTS: () => ALERTS, startDemoRide, get map() { return map; } };
+  window.__sr = { ST, PD, LINE, planRoutes, Loc, SOCIAL, ALERTS: () => ALERTS, startDemoRide, startSocialDemo, get map() { return map; } };
 }
 boot();
 })();

@@ -1,0 +1,1056 @@
+/* SafeRide mobile home redesign.
+   Fast live-location sharing is the dominant action; social context and
+   safety tools stay in a quiet, thumb-reachable dock. */
+
+:root {
+  --paper: #f2f2f7;
+  --surface: #ffffff;
+  --surface-2: #f2f2f7;
+  --ink: #111113;
+  --muted: #6e6e73;
+  --hairline: rgba(17, 17, 19, .10);
+  --focus: #0878ff;
+  --danger: #e23346;
+  --ok: #1f9d63;
+  --shadow: 0 12px 34px rgba(20, 24, 31, .14), 0 2px 8px rgba(20, 24, 31, .06);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+  --r-lg: 28px;
+  --r-md: 18px;
+  --r-sm: 13px;
+  --tab-h: 164px;
+}
+
+:root[data-mode="dark"] {
+  --paper: #0d0d0f;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --ink: #f5f5f7;
+  --muted: #a1a1a6;
+  --hairline: rgba(255, 255, 255, .12);
+  --focus: #64a8ff;
+  --danger: #ff4d61;
+  --shadow: 0 16px 40px rgba(0, 0, 0, .46), 0 2px 8px rgba(0, 0, 0, .32);
+}
+
+body {
+  font-family: var(--font);
+  letter-spacing: -.006em;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+/* Top identity: one compact product chip, one account control. */
+.top {
+  padding: calc(var(--sa-t) + 12px) 14px 0;
+  gap: 8px;
+}
+
+.bar {
+  min-height: 50px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  min-height: 50px;
+  margin-right: auto;
+  padding: 6px 14px 6px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 93%, transparent);
+  box-shadow: 0 8px 24px rgba(20, 24, 31, .10);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.brandmark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 13px;
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.brandmark svg {
+  width: 21px;
+  height: 21px;
+}
+
+.brandcopy {
+  display: grid;
+  line-height: 1.05;
+  text-align: left;
+}
+
+.brandcopy b {
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+
+.brandcopy span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 550;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface) 93%, transparent);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(20, 24, 31, .10);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.top-filter {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 93%, transparent);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(20, 24, 31, .10);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.top-filter svg {
+  width: 20px;
+  height: 20px;
+}
+
+.top-filter .dot {
+  border-color: var(--surface);
+}
+
+.cond {
+  min-width: 0;
+  height: 38px;
+  padding: 0 13px 0 10px;
+  border: 0;
+  border-radius: 19px;
+  background: color-mix(in srgb, var(--surface) 91%, transparent);
+  box-shadow: 0 6px 18px rgba(20, 24, 31, .09);
+  font-size: 13px;
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+}
+
+.cond .w svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cond .a .n {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  font-size: 11.5px;
+}
+
+/* Profile/preferences share the same compact rail as the map modes. */
+.moderail {
+  display: flex;
+  top: calc(var(--sa-t) + 76px);
+  right: 14px;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid var(--hairline);
+  border-radius: 19px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 8px 24px rgba(20, 24, 31, .10);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.moderail .rail-settings {
+  position: relative;
+  height: 48px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 14px 14px 8px 8px;
+}
+
+.moderail .rail-settings svg {
+  width: 22px;
+  height: 22px;
+}
+
+.moderail .rail-settings::after {
+  content: "";
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--focus);
+}
+
+/* Calm status and two circular map actions above the home dock. */
+.track {
+  left: 14px;
+  right: 166px;
+  bottom: calc(var(--tab-h) + var(--sa-b) + 12px);
+}
+
+.track button {
+  min-height: 50px;
+  padding: 5px 14px 5px 6px;
+  border: 0;
+  border-radius: 25px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.track .ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+}
+
+.track .l1 {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.track .l2 {
+  font-size: 11.5px;
+}
+
+.actions {
+  right: 14px;
+  bottom: calc(var(--tab-h) + var(--sa-b) + 12px);
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.round {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
+
+.round {
+  border: 0;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.panic {
+  width: 76px;
+  height: 76px;
+  min-width: 76px;
+  display: grid;
+  place-content: center;
+  gap: 0;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--danger) 34%, transparent);
+}
+
+.panic svg {
+  width: 28px;
+  height: 28px;
+}
+
+.panic span {
+  margin-top: 0;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .05em;
+}
+
+body.card-open .actions,
+body.trip-on .actions {
+  flex-direction: row;
+}
+
+/* Home dock: one prominent task and three quiet secondary actions. */
+.tabs {
+  left: 10px;
+  right: 10px;
+  bottom: calc(var(--sa-b) + 10px);
+  height: var(--tab-h);
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 66px 1fr;
+  gap: 5px;
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+.tabs button::before,
+.tabs button[aria-current="page"]::before {
+  content: none;
+}
+
+.tabs .trip-launch {
+  width: 100%;
+  height: 66px;
+  padding: 0 14px 0 10px;
+  border: 0;
+  border-radius: 21px;
+  background: var(--ink);
+  color: var(--surface);
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 11px;
+  text-align: left;
+}
+
+.tabs .share-launch.sharing {
+  background: #176b49;
+}
+
+.tabs .share-launch.sharing .trip-launch-icon {
+  position: relative;
+  background: rgba(255, 255, 255, .17);
+}
+
+.tabs .share-launch.sharing .trip-launch-icon::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #176b49;
+  border-radius: 50%;
+  background: #7ff0b7;
+  box-shadow: 0 0 0 4px rgba(127, 240, 183, .16);
+}
+
+.trip-launch-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 14%, transparent);
+}
+
+.trip-launch-icon svg {
+  width: 23px !important;
+  height: 23px !important;
+}
+
+.trip-launch-copy {
+  display: grid;
+  min-width: 0;
+  margin-right: auto;
+  line-height: 1.08;
+}
+
+.trip-launch-copy small {
+  color: color-mix(in srgb, var(--surface) 68%, transparent);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.trip-launch-copy strong {
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 720;
+  letter-spacing: -.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-launch-arrow {
+  width: 20px !important;
+  height: 20px !important;
+  flex: none;
+  color: color-mix(in srgb, var(--surface) 66%, transparent);
+}
+
+.tab-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.tabs .tab-actions button {
+  width: 100%;
+  min-width: 0;
+  height: 61px;
+  padding: 5px 3px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.tabs .tab-actions button:active,
+.tabs .tab-actions button[aria-current="page"] {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.tabs .tab-actions button svg {
+  width: 21px;
+  height: 21px;
+}
+
+.tabs .iconbtn .dot {
+  top: 8px;
+  right: calc(50% - 14px);
+  border-color: var(--surface);
+}
+
+.tabs .badgecount {
+  top: 5px;
+  left: calc(50% + 4px);
+  min-width: 17px;
+  height: 17px;
+  font-size: 10px;
+}
+
+.friend-count {
+  position: absolute;
+  top: 5px;
+  left: calc(50% + 5px);
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: #176b49;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+/* Cards and guidance align with the new dock. */
+.card,
+.trip {
+  left: 10px;
+  right: 10px;
+  bottom: calc(var(--tab-h) + var(--sa-b) + 10px);
+  border: 0;
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+}
+
+.card {
+  padding: 18px;
+}
+
+.trip {
+  padding: 16px 18px 12px;
+}
+
+/* Sheets behave like focused iOS/Uber task surfaces. */
+.scrim {
+  background: rgba(7, 8, 11, .34);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.sheet {
+  position: fixed;
+  max-height: min(92%, 820px);
+  border-radius: 32px 32px 0 0;
+  box-shadow: 0 -18px 54px rgba(0, 0, 0, .20);
+}
+
+.sheet .handle {
+  height: 30px;
+}
+
+.sheet .handle::before {
+  width: 38px;
+  height: 5px;
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+}
+
+.sheet header {
+  padding: 2px 20px 15px;
+}
+
+.sheet header h2 {
+  font-size: 28px;
+  font-weight: 760;
+  letter-spacing: -.035em;
+}
+
+.sheet .body {
+  padding: 4px 20px calc(36px + var(--sa-b));
+  gap: 22px;
+}
+
+.closebtn {
+  width: 38px;
+  height: 38px;
+}
+
+.hdpanic {
+  width: 38px;
+  height: 38px;
+  box-shadow: none;
+}
+
+.field {
+  min-height: 62px;
+  border-radius: 18px;
+  padding: 0 16px;
+}
+
+.fieldstack {
+  gap: 8px;
+}
+
+.field .lbl {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.field .val {
+  margin-top: 2px;
+  font-size: 16px;
+}
+
+.route-intro {
+  max-width: 34ch;
+  margin: -2px 2px 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.search {
+  height: 54px;
+  border-radius: 17px;
+}
+
+.seg {
+  border-radius: 14px;
+}
+
+.seg button,
+.seg.wide button {
+  border-radius: 11px;
+}
+
+.btn {
+  border-radius: 16px;
+}
+
+.btn.block {
+  height: 54px;
+}
+
+.opt,
+.al,
+.wx,
+.escape {
+  border-radius: 18px;
+}
+
+/* Social location layer -------------------------------------------------- */
+.friend-marker {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--friend-color, #6655d8);
+  color: #fff;
+  box-shadow: 0 5px 16px rgba(13, 18, 28, .28), 0 0 0 5px color-mix(in srgb, var(--friend-color, #6655d8) 20%, transparent);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.friend-marker::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #35c979;
+}
+
+.friend-marker.walking::after {
+  background: #8d92a0;
+}
+
+.friend-marker.selected {
+  transform: scale(1.12);
+  box-shadow: 0 7px 22px rgba(13, 18, 28, .32), 0 0 0 8px color-mix(in srgb, var(--friend-color, #6655d8) 24%, transparent);
+}
+
+.share-status {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--ok) 11%, var(--surface));
+}
+
+.share-pulse {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #176b49;
+}
+
+.share-pulse::before,
+.share-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+
+.share-pulse::after {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(255, 255, 255, .55);
+  background: transparent;
+  animation: share-wave 1.8s ease-out infinite;
+}
+
+@keyframes share-wave {
+  0% { transform: translate(-50%, -50%) scale(.55); opacity: 1; }
+  75%, 100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
+}
+
+.share-status strong {
+  display: block;
+  font-size: 18px;
+}
+
+.share-status span,
+.share-context small,
+.friend-row small,
+.friend-detail small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.share-context {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+}
+
+.share-context-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.share-context-main > span:last-child {
+  min-width: 0;
+}
+
+.share-context-main strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.share-meta-grid > div {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.share-meta-grid small,
+.share-meta-grid strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.share-meta-grid small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.share-meta-grid strong {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.15;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.viewer-stack {
+  display: flex;
+  align-items: center;
+}
+
+.viewer-stack .mini-avatar {
+  margin-left: -7px;
+}
+
+.viewer-stack .mini-avatar:first-child {
+  margin-left: 0;
+}
+
+.mini-avatar,
+.friend-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--friend-color, #6655d8);
+  color: #fff;
+  font-weight: 800;
+}
+
+.mini-avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+.friend-avatar {
+  width: 50px;
+  height: 50px;
+  font-size: 17px;
+}
+
+.friends-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 2px 4px;
+}
+
+.friends-summary > span:last-child {
+  min-width: 0;
+}
+
+.friends-summary strong {
+  display: block;
+  font-size: 16px;
+}
+
+.friends-list {
+  display: grid;
+  gap: 8px;
+}
+
+.friend-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 12px 10px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.friend-row[aria-current="true"] {
+  border-color: color-mix(in srgb, var(--focus) 55%, var(--hairline));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 12%, transparent);
+}
+
+.friend-copy {
+  min-width: 0;
+}
+
+.friend-copy strong,
+.friend-copy span,
+.friend-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-copy span {
+  margin-top: 3px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.friend-copy small {
+  margin-top: 2px;
+}
+
+.friend-eta {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.friend-eta b {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.friend-detail {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--surface-2);
+}
+
+.friend-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.friend-detail-head > span:last-child {
+  min-width: 0;
+}
+
+.friend-detail-head strong,
+.friend-detail-head span,
+.friend-detail-head small {
+  display: block;
+}
+
+.friend-detail-head strong {
+  font-size: 19px;
+}
+
+.friend-detail-head span {
+  margin-top: 2px;
+  font-weight: 650;
+}
+
+.friend-detail-head .badge {
+  display: inline-grid;
+  width: auto;
+  margin: 0 4px 0 0;
+  vertical-align: 1px;
+}
+
+.friend-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.friend-detail-grid > div {
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.friend-detail-grid small,
+.friend-detail-grid strong {
+  display: block;
+}
+
+/* One-tap non-urgent reporting. */
+.report-intro {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.report-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.report-context svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--focus);
+}
+
+.report-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.report-action {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 74px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.report-action .report-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 22px;
+}
+
+.report-action strong,
+.report-action small {
+  display: block;
+}
+
+.report-action strong {
+  font-size: 16px;
+}
+
+.report-action small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.report-action .report-arrow {
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+}
+
+.friend-detail-grid strong {
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.maplibregl-ctrl-top-left {
+  top: calc(var(--sa-t) + 112px);
+}
+
+.toast {
+  top: calc(var(--sa-t) + 108px);
+  border-radius: 16px;
+}
+
+@media (max-width: 370px) {
+  :root { --tab-h: 156px; }
+  .tabs { grid-template-rows: 63px 1fr; }
+  .tabs .trip-launch { height: 63px; }
+  .brandcopy span, .cond .w .tx { display: none; }
+  .track { right: 154px; }
+  .round { width: 52px; height: 52px; min-width: 52px; }
+  .panic { width: 68px; height: 68px; min-width: 68px; }
+}
+
+@media (min-width: 720px) {
+  .tabs {
+    left: 50%;
+    right: auto;
+    width: 460px;
+    transform: translateX(-50%);
+  }
+
+  .track {
+    left: calc(50% - 230px);
+    right: auto;
+    width: 300px;
+  }
+
+  .actions {
+    right: calc(50% - 230px);
+  }
+
+  .moderail {
+    display: flex;
+  }
+
+  .top {
+    max-width: 700px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabs button,
+  .brand,
+  .avatar,
+  .track button {
+    transition: none;
+  }
+
+  .share-pulse::after {
+    animation: none;
+    opacity: .65;
+  }
+}
