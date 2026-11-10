@@ -1464,6 +1464,7 @@ function panicAltRoute() {
 function renderPanic() {
   const b = $('#panicBody'), m = Loc.match;
   if (!b.querySelector('#pnEscape')) b.innerHTML = `<a class="call" href="tel:110"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>Call 110</a>
+    <a class="btn primary block" data-wayout href="/${esc(location.search)}#/rider/wayout" style="margin:10px 0">Way Out – Leitstelle &amp; sicherer Ausstieg</a>
     <div id="pnPin"></div><div id="pnEscape"></div><p class="note">In danger right now, call the police on 110. Sharing a live link with friends comes in Phase 6.</p>`;
   setHTML($('#pnPin'), pinUndo && pinUndo.until > Date.now() ? `<div class="banner" style="align-items:center">${ICON.pin.replace('<svg', '<svg width="18" height="18"')}<span style="margin-right:auto">Panic pin dropped here for 15 minutes.</span><button class="txtbtn" type="button" data-act="unpin">Undo</button></div>` : '');
   let html;

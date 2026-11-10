@@ -157,6 +157,14 @@ try {
   await srB.locator('[data-alert^="shared-4"]').waitFor({ timeout: 3000 }) // Way Out hotspot crowd (id = lat,lng)
   step('Way Out tap -> alert on SafeRide')
 
+  // --- SafeRide emergency -> Way Out (issue #20) ---
+  await srA.locator('#btnPanic').click()
+  await srA.locator('[data-wayout]').click()
+  await srA.getByRole('button', { name: 'Betrunkene Gruppe' }).waitFor({ timeout: 5000 })
+  assert.equal(new URL(srA.url()).hash, '#/rider')
+  await control.getByText(/Einzelmeldung · 2|Hotspot/).first().waitFor({ timeout: 3000 })
+  step('SafeRide Notfall -> Way Out lands on the options, control gets the tap')
+
   await control.getByRole('button', { name: /Arena/ }).click()
   await srB.locator('[data-alert^="shared-me-"]').waitFor({ state: 'detached', timeout: 3000 })
   assert.equal(await control.locator('path.sr-report').count(), 0)
