@@ -153,6 +153,9 @@ try {
   await control.getByRole('button', { name: /Arena/ }).click()
   const srA = await open('', true, '/saferide.html'), srB = await open('', true, '/saferide.html')
   for (const s of [srA, srB]) await s.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
+  await srA.getByTestId('ride-strip').getByText('Münchner Freiheit').waitFor({ timeout: 5000 })
+  await srA.locator('.sr-train').waitFor()
+  step('SafeRide shows the scenario train: ride bar under the top bar + marker on the map (issue #25)')
   await srA.locator('[data-tab="report"]').click()
   await srA.locator('[data-rsize="large"]').click()
   await srA.locator('[data-rint="aggressive"]').click()
@@ -198,6 +201,26 @@ try {
 
   // --- Real trips (free mode, live MVG API) ---
   await control.getByRole('button', { name: /Szenario beenden/ }).click()
+  { // A SafeRide trip becomes the Way Out train (issue #25)
+    const sr = await open('', true, '/saferide.html')
+    await sr.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
+    await sr.locator('[data-tab="route"]').click()
+    for (const [field, q] of [['from', 'Marienplatz'], ['to', 'Münchner Freiheit']]) {
+      await sr.locator(`[data-rfield="${field}"]`).click()
+      await sr.locator('#pickInput').fill(q)
+      await sr.locator('#pickResults [data-pick]').first().click()
+    }
+    await sr.locator('[data-ropt]').first().click()
+    await sr.locator('[data-act="trip"]').click()
+    await sr.locator('#btnPanic').click()
+    const d = sr.getByRole('dialog', { name: 'Notfall' })
+    await d.getByText(/Richtung/).waitFor({ timeout: 8000 })
+    const line = await d.locator('header span').first().innerText()
+    await control.locator('article', { hasText: line }).first().waitFor({ timeout: 3000 })
+    await d.getByRole('button', { name: "Mir geht's gut" }).click()
+    step(`SafeRide trip Marienplatz -> Münchner Freiheit = Way Out train ${line}, Notfall reaches the control room`)
+    await sr.close()
+  }
   for (const [from, to] of [['Hauptbahnhof', 'Münchner Freiheit'], ['Marienplatz', 'Garching, Forschungszentrum']]) {
     const r = await open('#/rider', true)
     await r.evaluate(() => sessionStorage.clear())

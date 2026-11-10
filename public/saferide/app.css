@@ -341,3 +341,6 @@ input.textin { width: 100%; height: 48px; border-radius: var(--r-sm); border: 1p
 }
 @media (max-width: 370px) { .brand span { display: none; } .cond .w .tx { display: none; } }
 @media (prefers-reduced-motion: reduce) { .sheet, .scrim, .toast, .switch, .switch::after, details.dd summary .chev, .actions { transition: none; } }
+
+/* Way Out scenario train (src/saferide/main.tsx) */
+.sr-train .badge { box-shadow: 0 0 0 4px var(--surface), 0 4px 14px rgba(0,0,0,.35); }

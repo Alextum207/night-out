@@ -1,10 +1,14 @@
 // SafeRide page entry: Way Out lives inside SafeRide (public/saferide/app.js, plain JS).
 // Window events with app.js:
 //   in:  sr:report (share a report), sr:emergency {pin} (Notfall tapped), sr:emergency-open (back from the escape sheet)
-//   out: sr:crowds (control-room crowds as alerts), sr:escape (open SafeRide's escape-route sheet), sr:unpin (undo the panic pin)
+//        sr:trip {from, to} | null (SafeRide trip started/ended: mapped to an MVG route)
+//   out: sr:crowds (control-room crowds as alerts), sr:escape (open SafeRide's escape-route sheet), sr:unpin (undo the panic pin),
+//        sr:train {lat, lng, line, fly} | null (scenario train marker)
 import '../saferide.css'
 import { StrictMode, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
+import { getRoute, searchStations } from '../mvg'
 import type { Report } from '../types'
 import { sessionId, useRide, type Ride } from '../rider/useRide'
 import WayOutPanel, { RideBar, WayOutScreens } from '../rider/WayOutPanel'
@@ -27,6 +31,30 @@ function SafeRideLayer() {
   }, [ride.rt])
   const crowdsKey = JSON.stringify(ride.liveCrowds)
   useEffect(() => { emit('sr:crowds', JSON.parse(crowdsKey)) }, [crowdsKey])
+
+  // An active SafeRide trip becomes the Way Out train (a running scenario keeps priority, see setFreeRoute).
+  useEffect(() => {
+    let seq = 0
+    const onTrip = async (e: Event) => {
+      const t = (e as CustomEvent<{ from: string; to: string } | null>).detail, my = ++seq
+      if (!t) return rideRef.current.setFreeRoute(null)
+      const [[a], [b]] = await Promise.all([searchStations(t.from), searchStations(t.to)])
+      const r = a && b ? await getRoute(a.id, b.id) : null
+      if (my === seq && r) rideRef.current.setFreeRoute(r.route)
+    }
+    addEventListener('sr:trip', onTrip)
+    return () => removeEventListener('sr:trip', onTrip)
+  }, [])
+
+  // Scenario train on the SafeRide map; fly there when a scenario (re)starts.
+  const train = ride.scenario && ride.pos && ride.leg ? { lat: ride.pos.lat, lng: ride.pos.lng, line: ride.leg.line } : null
+  const trainKey = JSON.stringify(train), flownFor = useRef<string | null>(null)
+  useEffect(() => {
+    const t = JSON.parse(trainKey) as typeof train
+    const fly = !!t && flownFor.current !== `${ride.scenario}|${ride.route?.legs[0].stops[0].dep}`
+    if (fly) flownFor.current = `${ride.scenario}|${ride.route?.legs[0].stops[0].dep}`
+    emit('sr:train', t && { ...t, fly })
+  }, [trainKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Notfall: tell the control room right away (tap if the train is known; app.js already dropped the pin), undo for 8 s.
   useEffect(() => {
@@ -54,9 +82,25 @@ function SafeRideLayer() {
   const end = () => { ride.fine('riding'); tapped.current = false; setOpen(false); setUndo(false) }
   const cancel = () => { emit('sr:unpin'); end() }
 
-  if (!open) return null
+  if (!open) return ride.scenario ? <RideStrip ride={ride} /> : null
   if (ride.screen === 'wayout' && (ride.nav || ride.showFront)) return <WayOutScreens ride={ride} />
   return <Emergency ride={ride} undo={undo} onUndo={cancel} onEnd={end} onEscape={() => { setOpen(false); emit('sr:escape') }} />
+}
+
+// Slim scenario ride bar under SafeRide's top bar.
+const top = document.querySelector('.top')
+function RideStrip({ ride }: { ride: Ride }) {
+  const { pos, leg } = ride
+  if (!top || !pos || !leg) return null
+  return createPortal(
+    <div data-testid="ride-strip" className="pointer-events-auto flex min-h-[42px] items-center gap-2 rounded-full border border-hairline bg-surface px-2 pr-4 text-sm text-ink shadow-md">
+      <span className="rounded-full bg-ink px-2.5 py-1 font-bold text-paper">{leg.line}</span>
+      <span>
+        {pos.state === 'train' ? <>Nächster Halt <b>{pos.nextStop.name}</b> · {pos.etaMin} Min</> : <>Am Bahnsteig <b>{pos.nextStop.name}</b> · Abfahrt {pos.etaMin} Min</>}
+      </span>
+    </div>,
+    top,
+  )
 }
 
 function Emergency({ ride, undo, onUndo, onEnd, onEscape }: { ride: Ride; undo: boolean; onUndo: () => void; onEnd: () => void; onEscape: () => void }) {

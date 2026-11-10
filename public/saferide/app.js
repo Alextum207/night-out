@@ -1306,10 +1306,13 @@ function startTrip(r, dest, kind) {
   }
   if (!STREETS && !startTrip.noted) { startTrip.noted = true; setTimeout(() => toast(PREVIEW ? 'Stadtplan und Fußwege laden, wenn SafeRide unter seiner eigenen Adresse läuft. Diese Vorschau kann keine Kartenkacheln laden.' : 'Der Stadtplan hat nicht geladen, darum sind Fußwege gerade Linien. Prüf deine Verbindung.', 5200), 1200); }
   tripTick(); setTimeout(setCardH, 50);
+  // Way Out maps this trip to an MVG route (first boarding stop -> destination) so Notfall knows the train.
+  const ride = r.legs.find(l => l.type === 'ride');
+  if (ride) dispatchEvent(new CustomEvent('sr:trip', { detail: { from: stName(ride.fromSid), to: stName(dest) } }));
 }
 function endTrip(msg) {
   const tr = ROUTE.trip; if (!tr) return;
-  ROUTE.trip = null; ROUTE.chosen = null; selected = null; Loc.follow = false;
+  ROUTE.trip = null; ROUTE.chosen = null; selected = null; Loc.follow = false; dispatchEvent(new CustomEvent('sr:trip', { detail: null }));
   document.body.classList.remove('trip-on'); closeCard(); drawRoute(null); applyFilters(); renderCond(); renderTrack(); renderModeRail(); setCardH();
   if (tr.prevView && map) map.flyTo({ center: tr.prevView.center, zoom: tr.prevView.zoom, duration: reduced() ? 0 : 800 });
   if (msg) toast(msg);
@@ -1436,6 +1439,15 @@ function startEmergency() {
 }
 addEventListener('sr:escape', () => openSheet('panic'));
 addEventListener('sr:unpin', () => undoPin());
+// The control-room scenario train (Way Out): one marker with the line badge; the map flies there when the scenario starts.
+let trainMarker = null;
+addEventListener('sr:train', e => {
+  const t = e.detail; if (!map) return;
+  if (!t) { if (trainMarker) { trainMarker.remove(); trainMarker = null; } return; }
+  if (!trainMarker) { const el = document.createElement('div'); el.className = 'sr-train'; trainMarker = new maplibregl.Marker({ element: el }).setLngLat([t.lng, t.lat]).addTo(map); }
+  trainMarker.getElement().innerHTML = badge(t.line, 'lg'); trainMarker.setLngLat([t.lng, t.lat]);
+  if (t.fly) map.flyTo({ center: [t.lng, t.lat], zoom: 14, duration: reduced() ? 0 : 900 });
+});
 let panicCache = { key: null, html: '' }, PANIC_ALT = null, pinUndo = null;
 function dropPin() {
   const p = myPosition(); if (!p) return;
