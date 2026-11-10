@@ -203,6 +203,32 @@ This file is the single source of decisions for the sprint. Exception to AGENTS.
 - If MVG reports a broken escalator or elevator, the route avoids it and shows a hint.
 
 **Build**: 10 issues as sub-issues of a `wayfinder:map` issue, labelled `wayfinder:task`, with native GitHub dependencies. Issue 1 blocks 2/3/4/6. The rule tables (position, options + copy, action texts, selfcheck cases) are acceptance criteria in the issues.
+**SafeRide merge (grilling round 3, 2026-11-10)**
+
+The source is `saferide-munich_1.zip` from a teammate: one vanilla-JS `index.html` with MapLibre and the network data inlined. Reports were kept only in localStorage.
+
+- **Embedded, not ported:**
+  - `saferide.html` is a second Vite entry; its code lives in `public/saferide/` (`app.js`, `app.css`, `maplibre.js`, `data.js`, `pwa.js`).
+  - MapLibre stays inside SafeRide and Leaflet stays in Way Out.
+  - SafeRide's routing (simulated timetables, `mvg_xxx` ids) stays as it is.
+- **Bridge:**
+  - `src/saferide-bridge.ts` uses `realtime.ts`, so it gets the same env vars, the same `?room` and the same reconnect.
+  - It talks to SafeRide through `window` events `sr:report` (out) and `sr:crowds` (in).
+- **Entry:** phones open `/saferide.html?room=…`. `/` stays the control room and `#/rider` stays Way Out.
+- **Notfall → Way Out:**
+  - The emergency sheet has a "Way Out" button that opens `/?room=…#/rider/wayout`.
+  - With a scenario running, the phone comes into the ride via `hello`/`demo` and the Way Out options open immediately. Without a scenario, trip setup appears.
+  - SafeRide's trip is not carried over, because its ids are not globalIds.
+- **Reports:**
+  - The new event `report` (rider → control) carries `Report`. Undo sends the same id with `to = now`.
+  - The control room shows reports as markers only, with no cards or actions.
+  - Reports flow into `crowds`: aggressive, harassing and panic pins become `unsafe`, and loud ones become `busy`. Catch-up happens via `hello`.
+  - SafeRide shows `crowds` (Way Out hotspots + reports) as alerts, and its safe routing avoids them.
+  - Reports run on **real time**: 45 minutes, panic pin 15 minutes. Starting, resetting or ending a scenario clears all shared reports.
+- **Language:** everything is in German. The names "SafeRide München" and "Way Out" stay; "Panic" becomes "Notfall"; the tabs are Karte / Route / Hinweise / Melden.
+- **Not deployed:**
+  - The edge function `supabase/functions/monitor` is not deployed, so news stays demo data. MVG `/messages` sends CORS `*`, so it works directly.
+  - SafeRide's demo examples stay on.
 
 ## 13. Sources
 
