@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
-import { Circle, MapContainer, Marker, Polygon, Polyline, TileLayer, useMap } from 'react-leaflet'
+import { AttributionControl, Circle, MapContainer, Marker, Polygon, Polyline, TileLayer, useMap } from 'react-leaflet'
 import type { Action, Crowd, LatLng, Stop } from '../types'
 import { levelName, loadIndoor, pickExit, routeTo, startNode, toSteps, type Step, type StepKind } from '../indoor'
 import { directions, SECURITY_TEAMS } from '../mock'
@@ -70,6 +70,7 @@ export default function Navigate(p: Props) {
     if (dx > 50) back()
     else next()
   }
+  const keep = (e: React.PointerEvent) => e.stopPropagation() // buttons don't also count as "tap = next"
 
   if (!step) return null
   const done = step.kind === 'arrive'
@@ -79,26 +80,40 @@ export default function Navigate(p: Props) {
   return (
     <div className="fixed inset-0 z-50 flex h-dvh flex-col bg-paper font-ride">
       <section
+        data-done={done}
         onPointerDown={(e) => (sx.current = e.clientX)} onPointerUp={onUp}
-        className={`relative flex flex-1 select-none flex-col items-center justify-center gap-3 px-6 text-white ${done ? 'bg-emerald-600' : 'bg-violet-700'}`}>
-        <div className="absolute left-4 right-4 top-3 flex items-center text-sm text-white/80">
-          <span>Schritt {idx + 1}/{steps.length}{level && ` · ${level}`}</span>
-          <button onPointerUp={(e) => e.stopPropagation()} onClick={p.onClose} className="ml-auto min-h-11 min-w-11 border-0 bg-transparent text-2xl text-white" aria-label="Schließen">✕</button>
+        className={`relative flex flex-1 select-none flex-col px-6 pb-8 text-white transition-colors duration-500 ${done ? 'bg-[#1f8a57]' : 'bg-[#141a2e]'}`}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
+        <div className="flex items-center gap-3" onPointerUp={keep}>
+          <div className="flex flex-1 gap-1" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={idx + 1} aria-label="Schritte">
+            {steps.map((_, k) => <span key={k} className={`h-1 flex-1 rounded-full ${k <= idx ? 'bg-white' : 'bg-white/25'}`} />)}
+          </div>
+          <button onClick={p.onClose} aria-label="Schließen" className="grid size-11 place-items-center rounded-full border-0 bg-white/10 text-white">
+            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
-        {p.feedback && <p className="absolute top-14 m-0 rounded-full bg-white/20 px-3 py-1 text-sm">{p.feedback.text}</p>}
-        <Glyph kind={step.kind} rotate={rot} />
-        <p className="m-0 text-center text-2xl font-bold leading-snug" data-testid="nav-text">{step.text}</p>
-        {plan.hint && <p className="m-0 rounded-lg bg-black/25 px-3 py-1 text-center text-sm">{plan.hint}</p>}
-        <div className="absolute bottom-3 left-4 right-4 flex gap-2" onPointerUp={(e) => e.stopPropagation()}>
-          {idx > 0 && <button onClick={back} className="min-h-11 rounded-full border-0 bg-white/15 px-4 text-white">Zurück</button>}
-          {!out && p.target !== 'emergency' && g && (
-            <button onClick={() => { setOut(true); setI(0) }} className="ml-auto min-h-11 rounded-full border-0 bg-white px-4 font-semibold text-violet-800">Lieber raus auf die Straße</button>
+        {p.feedback && <p className="m-0 mt-3 self-start rounded-full bg-white/10 px-3 py-1 text-sm text-white/90">{p.feedback.text}</p>}
+
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 py-4 text-center">
+          <Glyph kind={step.kind} rotate={rot} />
+          <p className="m-0 max-w-sm text-[26px] font-bold leading-tight" data-testid="nav-text">{step.text}</p>
+          {(level || plan.hint) && <p className="m-0 text-sm text-white/65">{[level, plan.hint].filter(Boolean).join(' · ')}</p>}
+        </div>
+
+        <div className="flex min-h-11 items-center gap-2" onPointerUp={keep}>
+          {idx > 0 && (
+            <button onClick={back} aria-label="Zurück" className="grid size-11 place-items-center rounded-full border-0 bg-white/10 text-white">
+              <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
           )}
-          {!done && <span className="ml-auto self-center text-sm text-white/70">Tippen für weiter</span>}
+          {!out && p.target !== 'emergency' && g && (
+            <button onClick={() => { setOut(true); setI(0) }} className="border-0 bg-transparent px-1 text-sm font-semibold text-white/75 underline underline-offset-4">Lieber raus auf die Straße</button>
+          )}
+          {!done && <button onClick={next} className="ml-auto h-11 rounded-full border-0 bg-white px-6 font-bold text-[#141a2e]">Weiter</button>}
         </div>
       </section>
-      <section className="relative h-[45%] shrink-0">
-        <NavMap steps={steps} current={idx} stop={p.stop} crowds={p.crowds} outline={g?.outline ?? []} police={g?.police ?? []} />
+      <section className="relative -mt-5 h-[42%] shrink-0 overflow-hidden rounded-t-[22px] bg-paper">
+        <NavMap steps={steps} current={idx} stop={p.stop} crowds={p.crowds} outline={g?.outline ?? []} security={p.target === 'security'} />
       </section>
     </div>
   )
@@ -106,18 +121,18 @@ export default function Navigate(p: Props) {
 
 function Glyph({ kind, rotate }: { kind: StepKind; rotate: number }) {
   const arrow = (deg: number) => (
-    <svg viewBox="0 0 100 100" className="h-40 w-40 drop-shadow-lg transition-transform duration-300" style={{ transform: `rotate(${deg}deg)` }} aria-hidden>
-      <path d="M50 6 L86 50 H62 V94 H38 V50 H14 Z" fill="white" />
+    <svg viewBox="0 0 100 100" className="size-36 transition-transform duration-300" style={{ transform: `rotate(${deg}deg)` }} aria-hidden>
+      <path d="M50 8 L84 48 H61 V92 H39 V48 H16 Z" fill="white" />
     </svg>
   )
   const box = (label: string, up: boolean | null) => (
-    <div className="flex h-40 w-40 flex-col items-center justify-center rounded-3xl border-4 border-white text-white">
-      <svg viewBox="0 0 100 60" className="h-16 w-24" aria-hidden>
+    <div className="flex size-36 flex-col items-center justify-center gap-2 rounded-[28px] border-2 border-white/80 text-white">
+      <svg viewBox="0 0 100 60" className="h-14 w-20" aria-hidden>
         {label === 'Aufzug'
-          ? <><rect x="25" y="2" width="50" height="56" rx="6" fill="none" stroke="white" strokeWidth="6" /><path d="M40 24 L50 12 L60 24 M40 36 L50 48 L60 36" stroke="white" strokeWidth="6" fill="none" /></>
-          : <path d="M5 55 H25 V42 H45 V29 H65 V16 H95" stroke="white" strokeWidth="8" fill="none" style={{ transform: up ? 'none' : 'scaleX(-1)', transformOrigin: '50px 30px' }} />}
+          ? <><rect x="25" y="2" width="50" height="56" rx="8" fill="none" stroke="white" strokeWidth="6" /><path d="M40 24 L50 12 L60 24 M40 36 L50 48 L60 36" stroke="white" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>
+          : <path d="M5 55 H25 V42 H45 V29 H65 V16 H95" stroke="white" strokeWidth="7" fill="none" strokeLinejoin="round" style={{ transform: up ? 'none' : 'scaleX(-1)', transformOrigin: '50px 30px' }} />}
       </svg>
-      <span className="mt-1 text-lg font-bold">{label}{up === null ? '' : up ? ' ↑' : ' ↓'}</span>
+      <span className="text-base font-bold">{label}{up === null ? '' : up ? ' ↑' : ' ↓'}</span>
     </div>
   )
   switch (kind) {
@@ -129,48 +144,47 @@ function Glyph({ kind, rotate }: { kind: StepKind; rotate: number }) {
     case 'escalatorUp': return box('Rolltreppe', true)
     case 'escalatorDown': return box('Rolltreppe', false)
     case 'elevator': return box('Aufzug', null)
-    case 'arrive': return <div className="flex h-40 w-40 items-center justify-center rounded-full border-8 border-white text-7xl">✓</div>
+    case 'arrive': return (
+      <div className="grid size-36 place-items-center rounded-full border-[6px] border-white">
+        <svg viewBox="0 0 24 24" className="size-16" fill="none" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      </div>
+    )
   }
 }
 
-const badge = (html: string, cls = '') => L.divIcon({ className: '', html: `<div class="poi ${cls}">${html}</div>`, iconSize: undefined })
-const POI: Partial<Record<StepKind, string>> = {
-  stairsUp: 'Treppe ↑', stairsDown: 'Treppe ↓', escalatorUp: 'Rolltreppe ↑', escalatorDown: 'Rolltreppe ↓', elevator: 'Aufzug',
-}
+const dot = (cls: string) => L.divIcon({ className: '', html: `<div class="nav-dot ${cls}"></div>`, iconSize: undefined })
 
 function Fit({ points }: { points: LatLng[] }) {
   const map = useMap()
   useEffect(() => {
-    if (points.length > 1) map.fitBounds(points, { padding: [50, 50], maxZoom: 19, animate: false })
-    else if (points.length) map.setView(points[0], 19, { animate: false })
+    if (points.length > 1) map.fitBounds(points, { padding: [44, 44], maxZoom: 18, animate: false })
+    else if (points.length) map.setView(points[0], 18, { animate: false })
   }, [map, points])
   return null
 }
 
-function NavMap({ steps, current, stop, crowds, outline, police }: {
-  steps: Step[]; current: number; stop: Stop; crowds: Crowd[]; outline: LatLng[][]; police: { name: string; lat: number; lng: number }[]
+// Clean map: no shop/POI clutter (SafeRide's Esri gray canvas), only outline, route, you, destination, groups (and Security when it is the destination).
+function NavMap({ steps, current, stop, crowds, outline, security }: {
+  steps: Step[]; current: number; stop: Stop; crowds: Crowd[]; outline: LatLng[][]; security: boolean
 }) {
   const here = steps[current]
   const all = steps.flatMap((s) => s.points)
-  const levelLabels = steps.filter((s, i) => s.level !== null && (i === 0 || steps[i - 1].level !== s.level) && s.kind !== 'arrive')
+  const dark = document.documentElement.dataset.mode === 'dark'
   return (
-    <MapContainer center={[stop.lat, stop.lng]} zoom={18} zoomControl={false} attributionControl={false} className="h-full w-full">
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="nav-tiles" maxZoom={20} maxNativeZoom={19} />
-      <Circle center={[stop.lat, stop.lng]} radius={140} pathOptions={{ stroke: false, fillColor: '#142230', fillOpacity: 0.35 }} />
-      {outline.map((o, i) => <Polygon key={i} positions={o} pathOptions={{ color: '#cbd5e1', weight: 1.5, fillColor: '#94a3b8', fillOpacity: 0.12 }} />)}
-      {steps.map((s, i) => s.points.length > 1 && (
-        <Polyline key={`g${i}`} positions={s.points} pathOptions={{ color: '#ffffff', weight: i === current ? 16 : 12, opacity: 0.55, lineCap: 'round' }} />
-      ))}
+    <MapContainer center={[stop.lat, stop.lng]} zoom={18} maxZoom={19} zoomControl={false} attributionControl={false} className="nav-map h-full w-full">
+      <AttributionControl prefix={false} />
+      {/* SafeRide's own basemap (Esri gray canvas): no POI clutter; native up to z16, scaled beyond that */}
+      <TileLayer key={dark ? 'd' : 'l'} url={`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${dark ? 'Dark' : 'Light'}_Gray_Base/MapServer/tile/{z}/{y}/{x}`}
+        maxNativeZoom={16} maxZoom={19} opacity={0.75} attribution="Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap" />
+      <Circle center={[stop.lat, stop.lng]} radius={140} pathOptions={{ stroke: false, fillColor: '#141a2e', fillOpacity: dark ? 0.25 : 0.06 }} />
+      {outline.map((o, i) => <Polygon key={i} positions={o} pathOptions={{ color: dark ? '#5d6c7c' : '#9aa7b4', weight: 1.5, fillColor: dark ? '#212d3a' : '#ffffff', fillOpacity: 0.6 }} />)}
       {steps.map((s, i) => s.points.length > 1 && (
         <Polyline key={`r${i}-${current}`} positions={s.points}
-          pathOptions={{ color: i < current ? '#a78bfa' : '#7c3aed', weight: i === current ? 10 : 7, dashArray: s.underground ? '12 9' : undefined, lineCap: 'round', className: i === current ? 'pulse-line' : '' }} />
+          pathOptions={{ color: i < current ? '#a99cf0' : '#6d4aff', weight: i === current ? 9 : 6, opacity: i === current ? 1 : 0.7, dashArray: s.underground ? '10 8' : undefined, lineCap: 'round', lineJoin: 'round' }} className={i === current ? 'pulse-line' : undefined} />
       ))}
-      {steps.map((s, i) => POI[s.kind] && <Marker key={`p${i}`} position={s.points[0]} icon={badge(POI[s.kind]!, 'poi-step')} />)}
-      {levelLabels.map((s, i) => <Marker key={`l${i}`} position={s.points.at(-1)!} icon={badge(s.level! < 0 ? `Ebene ${s.level}` : 'Straße', 'poi-level')} />)}
-      {police.map((x) => <Marker key={x.name} position={[x.lat, x.lng]} icon={badge('🚓 Polizei', 'poi-police')} />)}
-      {SECURITY_TEAMS.map((t) => <Marker key={t.id} position={[t.lat, t.lng]} icon={badge('🛡 Security', 'poi-security')} />)}
-      {crowds.map((c, i) => <Marker key={`c${i}`} position={[c.lat, c.lng]} icon={badge(`👥 ${c.kind === 'unsafe' ? 'Gruppe' : 'Belebt'}`, c.kind === 'unsafe' ? 'poi-unsafe' : 'poi-busy')} />)}
-      <Marker position={steps.at(-1)!.points.at(-1)!} icon={badge('Ziel', 'poi-goal')} />
+      {crowds.map((c, i) => <Marker key={`c${i}`} position={[c.lat, c.lng]} icon={dot(c.kind === 'unsafe' ? 'nav-dot-unsafe' : 'nav-dot-busy')} />)}
+      {security && SECURITY_TEAMS.map((t) => <Marker key={t.id} position={[t.lat, t.lng]} icon={dot('nav-dot-security')} />)}
+      <Marker position={steps.at(-1)!.points.at(-1)!} icon={dot('nav-dot-goal')} />
       <Marker position={here.points[0]} icon={L.divIcon({ className: '', html: '<div class="me-dot"></div>' })} />
       <Fit points={here.points.length > 1 ? here.points : all.length > 1 && current === steps.length - 1 ? all : here.points} />
     </MapContainer>

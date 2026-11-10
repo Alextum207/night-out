@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { getRoute, searchStations, type StationHit } from '../mvg'
 import type { Route } from '../types'
 import { useRide } from './useRide'
-import WayOutPanel, { RideBar, WayOutScreens } from './WayOutPanel'
+import WayOutPanel, { CalmScreen, RideBar, Status, WayOutScreens } from './WayOutPanel'
 
 const shell = 'mx-auto flex min-h-dvh max-w-md flex-col gap-4 bg-paper p-4 pb-8 font-ride text-ink'
 
@@ -21,6 +21,13 @@ export default function Rider() {
     return <TripSetup onRoute={(r) => ride.setFreeRoute(r, true)} />
   }
   if (screen === 'wayout' && (ride.nav || ride.showFront)) return <WayOutScreens ride={ride} />
+  if (screen === 'wayout') {
+    return (
+      <CalmScreen label="Way Out" status={<Status live>Leitstelle informiert</Status>} onFine={() => ride.fine()}>
+        <WayOutPanel ride={ride} />
+      </CalmScreen>
+    )
+  }
 
   return (
     <div className="min-h-dvh bg-paper">
@@ -36,8 +43,6 @@ export default function Rider() {
             <button onClick={() => ride.setScreen('setup')} className="min-h-11 border-0 bg-transparent text-sm text-muted underline">Andere Fahrt</button>
           </>
         )}
-
-        {screen === 'wayout' && <WayOutPanel ride={ride} onFine={() => ride.fine()} />}
 
         {screen === 'closed' && (
           <section className="mt-8 flex flex-col gap-4 text-center">

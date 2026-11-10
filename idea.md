@@ -253,6 +253,26 @@ This replaces the "Notfall → Way Out" page jump.
 - **Luna window** in the control room shows the integrated `saferide.html`.
 - **Navigation mini map** stays Leaflet, in the SafeRide look.
 
+**Calm emergency UI (2026-11-10, user request: minimal, clear, sleek)**
+
+The user asked me to decide this; it replaces the layout parts of round 4.
+
+- **Emergency screen: one decision per screen.**
+  - Status line on top: "● Leitstelle informiert" plus Rückgängig for 8 s.
+  - Headline: where you are.
+  - **One** primary action (the first option); the other options are slim rows; the reasons are one compact chip row.
+  - **110 and "Mir geht's gut" sit fixed in the thumb zone** at the bottom. This replaces "110 at the top".
+- **Dropped clutter:**
+  - The status box and the separate ride card.
+  - Long option descriptions; at most one short line remains under the primary action.
+  - The step list in the control-room feedback. "Weg zeigen" opens the navigation instead.
+- **Navigation:**
+  - A calm dark surface (ink) instead of saturated violet, and a green surface on arrival.
+  - A segmented progress bar, a big glyph and one sentence.
+  - "Lieber raus auf die Straße" becomes a quiet text link.
+  - The map uses SafeRide's Esri gray canvas tiles (no POI clutter; CARTO now needs an API key), native up to z16 and shown at most at z18. It shows only the station outline, the route, you, the destination, reported groups and Security when it is the destination. Police, level and step badges are dropped.
+  - The Esri/OSM attribution stays, small.
+
 ## 13. Sources
 
 - Munich Police Security Report 2025 (PP München)
