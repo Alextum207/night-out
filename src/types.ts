@@ -14,7 +14,8 @@ export type Stop = {
 }
 
 // A crowd on the rider's map. unsafe = reported drunk group / harassment, never a safe place to go.
-export type Crowd = { lat: number; lng: number; kind: 'busy' | 'unsafe'; label: string; id?: string }
+// id/from/to only for SafeRide reports (real time, epoch ms).
+export type Crowd = { lat: number; lng: number; kind: 'busy' | 'unsafe'; label: string; id?: string; from?: number; to?: number }
 
 // SafeRide report (group or panic pin), real time. Undo = same id with to <= now.
 export type Report = {

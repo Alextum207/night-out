@@ -31,7 +31,7 @@ export function groupTaps(taps: Map<string, Tap>, now: number): { hotspots: Hots
 // SafeRide reports as crowds for every map. Aggressive, harassing and panic pins are never a safe crowd.
 export function reportCrowds(reports: Iterable<Report>, nowMs: number): Crowd[] {
   return [...reports].filter((r) => r.from <= nowMs && nowMs < r.to).map((r) => ({
-    id: r.id, lat: r.lat, lng: r.lng, label: r.title,
+    id: r.id, from: r.from, to: r.to, lat: r.lat, lng: r.lng, label: r.title,
     kind: r.panic || r.intensity === 'aggressive' || r.intensity === 'harassing' ? 'unsafe' : 'busy',
   }))
 }

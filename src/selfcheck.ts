@@ -132,6 +132,7 @@ import type { Report } from './types'
   const c = reportCrowds([r('loud', {}), r('agg', { intensity: 'aggressive' }), r('har', { intensity: 'harassing' }), r('pin', { panic: true, size: null, intensity: null }),
     r('old', { to: 50 }), r('undo', { to: 60 })], 60)
   assert.deepEqual(c.map((x) => [x.id, x.kind]), [['loud', 'busy'], ['agg', 'unsafe'], ['har', 'unsafe'], ['pin', 'unsafe']]) // expired + undone dropped
+  assert.deepEqual([c[0].from, c[0].to], [0, 100]) // real report times reach the other phones
 }
 
 console.log('selfcheck ok')

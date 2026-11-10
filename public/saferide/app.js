@@ -1423,7 +1423,7 @@ addEventListener('sr:crowds', e => {
   const mine = new Set(MYREPORTS.map(r => r.id)), now = Date.now();
   SHARED = e.detail.filter(c => !mine.has(c.id)).map(c => ({ id: 'shared-' + (c.id || `${c.lat},${c.lng}`), kind: 'report', sev: c.kind === 'unsafe' ? 3 : 2,
     title: c.label, body: c.id ? 'Von einem anderen Fahrgast gemeldet.' : 'Way-Out-Meldung aus der Leitstelle.', at: [c.lng, c.lat], r: 250,
-    from: now, to: now + 45 * 60000, source: 'Leitstelle', shared: true }));
+    from: c.from ?? now, to: c.to ?? now + 45 * 60000, source: 'Leitstelle', shared: true }));
   ALERTS = [...ALERTS.filter(a => !a.shared), ...SHARED];
   if (map) refreshAlertsEverywhere(); // before boot: loadMonitoring picks SHARED up
 });
