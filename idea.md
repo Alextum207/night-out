@@ -212,10 +212,10 @@ The source is `saferide-munich_1.zip` from a teammate: one vanilla-JS `index.htm
   - MapLibre stays inside SafeRide and Leaflet stays in Way Out.
   - SafeRide's routing (simulated timetables, `mvg_xxx` ids) stays as it is.
 - **Bridge:**
-  - `src/saferide-bridge.ts` uses `realtime.ts`, so it gets the same env vars, the same `?room` and the same reconnect.
+  - `src/saferide-bridge.ts` uses `realtime.ts`, so it gets the same env vars, the same `?room` and the same reconnect. *(Superseded by round 4: `src/saferide/main.tsx`.)*
   - It talks to SafeRide through `window` events `sr:report` (out) and `sr:crowds` (in).
 - **Entry:** phones open `/saferide.html?room=…`. `/` stays the control room and `#/rider` stays Way Out.
-- **Notfall → Way Out:**
+- **Notfall → Way Out:** *(superseded by round 4: overlay instead of a page jump)*
   - The emergency sheet has a "Way Out" button that opens `/?room=…#/rider/wayout`.
   - With a scenario running, the phone comes into the ride via `hello`/`demo` and the Way Out options open immediately. Without a scenario, trip setup appears.
   - SafeRide's trip is not carried over, because its ids are not globalIds.

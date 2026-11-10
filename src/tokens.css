@@ -1,5 +1,6 @@
 /* SafeRide design tokens: one source for SafeRide (public/saferide/app.css) and Way Out's rider views.
-   Ink on paper, the network carries the colour, red only for danger. Dark mode via html[data-mode="dark"]. */
+   Ink on paper, the network carries the colour, red only for danger. Dark mode via html[data-mode="dark"].
+   Plain CSS on purpose: saferide.html links it render-blocking, so SafeRide has its colours before any JS runs. */
 :root {
   --paper: #F4F6F8;
   --surface: #FFFFFF;
@@ -32,17 +33,4 @@
   --ok: #3CC184;
   --focus: #7EA6FF;
   --shadow: 0 8px 28px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
-}
-
-@theme inline {
-  --color-paper: var(--paper);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-ink: var(--ink);
-  --color-muted: var(--muted);
-  --color-hairline: var(--hairline);
-  --color-danger: var(--danger);
-  --color-ok: var(--ok);
-  --color-warn: var(--warn);
-  --font-ride: var(--font);
 }

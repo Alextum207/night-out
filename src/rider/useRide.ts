@@ -16,7 +16,7 @@ export const REASONS = ['Betrunkene Gruppe', 'Belästigung', 'Zu voll', 'Fühle 
 export type Screen = 'setup' | 'riding' | 'wayout' | 'closed'
 type Saved = { route: Route | null; scenario: ScenarioId | null; screen: Screen; reasons: string[]; virtual: number | null; feedback: Action | null; nav: NavTarget | null; frontCar: boolean }
 
-export const store = {
+const store = {
   get<T>(k: string): T | null {
     try { return JSON.parse(sessionStorage.getItem(k) ?? 'null') } catch { return null }
   },
@@ -28,7 +28,7 @@ export const sessionId: string = store.get('wayout.session') ?? (crypto.randomUU
 store.set('wayout.session', sessionId)
 
 // persist: keep the ride in sessionStorage across reloads (#/rider). The SafeRide page recovers via hello instead.
-export function useRide(persist: boolean) {
+export function useRide({ persist }: { persist: boolean }) {
   const [saved] = useState(() => {
     const s = persist ? store.get<Saved>('wayout.state') : null
     if (s?.virtual) setVirtual(s.virtual) // restore the scenario clock before the first position is computed

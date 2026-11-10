@@ -7,7 +7,16 @@ import { REASONS, type Ride } from './useRide'
 
 const hhmm = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 
-// Line, direction and next stop. Also used as SafeRide's ride bar.
+// Where the rider is, in one sentence (ride bar, SafeRide's ride strip).
+export function Where({ pos }: { pos: NonNullable<Ride['pos']> }) {
+  return pos.state === 'train'
+    ? <>Nächster Halt <b>{pos.nextStop.name}</b> in {pos.etaMin} Min</>
+    : pos.etaMin > 0
+      ? <>Am Bahnsteig <b>{pos.nextStop.name}</b>, Abfahrt in {pos.etaMin} Min</>
+      : <>Angekommen: <b>{pos.nextStop.name}</b></>
+}
+
+// Line, direction and next stop.
 export function RideBar({ ride, clock = false }: { ride: Ride; clock?: boolean }) {
   const { pos, leg } = ride
   if (!pos || !leg) return null
@@ -18,24 +27,18 @@ export function RideBar({ ride, clock = false }: { ride: Ride; clock?: boolean }
         <span>Richtung {leg.destination}</span>
         {clock && <span className="ml-auto tabular-nums">{hhmm(now())}</span>}
       </div>
-      <p className="m-0 mt-2 text-lg font-semibold">
-        {pos.state === 'train'
-          ? <>Nächster Halt <b>{pos.nextStop.name}</b> in {pos.etaMin} Min</>
-          : pos.etaMin > 0
-            ? <>Am Bahnsteig <b>{pos.nextStop.name}</b>, Abfahrt in {pos.etaMin} Min</>
-            : <>Angekommen: <b>{pos.nextStop.name}</b></>}
-      </p>
+      <p className="m-0 mt-2 text-lg font-semibold"><Where pos={pos} /></p>
     </header>
   )
 }
 
 // Full-screen steps after an option was chosen (navigation, front car). null = show the panel.
-export function WayOutScreens({ ride, onExit }: { ride: Ride; onExit?: () => void }) {
+export function WayOutScreens({ ride }: { ride: Ride }) {
   const { pos, leg, nav } = ride
   if (!pos || !leg) return null
   if (nav) {
     return <Navigate stop={pos.nextStop} target={nav} travelBearing={ride.travelBearing} frontCar={ride.frontCar} reasons={ride.reasons}
-      crowds={ride.crowds} nextTrainMin={ride.nextTrainMin} feedback={ride.feedback} onClose={() => { ride.setNav(null); onExit?.() }} />
+      crowds={ride.crowds} nextTrainMin={ride.nextTrainMin} feedback={ride.feedback} onClose={() => ride.setNav(null)} />
   }
   if (ride.showFront) {
     return (

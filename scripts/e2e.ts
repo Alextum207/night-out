@@ -182,6 +182,10 @@ try {
   await srA.getByRole('button', { name: 'Schließen' }).click()
   await dialog.getByRole('button', { name: 'Andere Verbindung' }).click()
   await srA.locator('#sheet-panic [data-act="emergency"]').click()
+  await dialog.getByRole('button', { name: 'Andere Verbindung' }).click()
+  await srA.locator('#sheet-panic.open').waitFor()
+  await srA.keyboard.press('Escape') // closing the escape sheet any other way also returns to the emergency
+  await dialog.waitFor()
   await dialog.getByRole('button', { name: "Mir geht's gut" }).click()
   await dialog.waitFor({ state: 'detached' })
   await control.getByText('Einzelmeldung · 2').waitFor({ state: 'detached', timeout: 3000 })

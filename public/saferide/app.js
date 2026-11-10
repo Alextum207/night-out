@@ -84,7 +84,7 @@ const saveF = () => saveJSON(KEY_F, F), saveP = () => saveJSON(KEY_P, P);
 
 let LINES = [], LINE = {}, STATIONS = null, PD = [], ST = {}, STOPS_AT = {}, NEAR = {};
 let map = null, selected = null, theme = 'light', cardRefresh = null, openSheetId = null;
-let SHARED = []; // reports + Way Out hotspots from the control room (src/saferide-bridge.ts)
+let SHARED = []; // reports + Way Out hotspots from the control room (src/saferide/main.tsx)
 let ALERTS = [], WEATHER = null, SOURCES = { mvg: 'loading', news: 'loading', weather: 'loading' }, alertsUpdated = null;
 let ROUTE = { from: null, to: null, mode: null, results: null, chosen: null, trip: null };
 
@@ -991,6 +991,8 @@ function openSheet(id) {
 }
 function closeSheet() {
   $$('.sheet.open').forEach(s => { s.classList.remove('open'); s.style.transform = ''; });
+  // the escape-route sheet belongs to an active emergency: closing it returns to the Way Out overlay
+  if (openSheetId === 'panic') dispatchEvent(new CustomEvent('sr:emergency-open'));
   $('#scrim').classList.remove('on'); openSheetId = null; setTab('map'); document.body.classList.remove('sheet-open', 'panic-open', 'picker-open'); setCardH();
 }
 function setTab(t) { $$('.tabs button').forEach(b => b.dataset.tab === t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')); }
@@ -1417,7 +1419,7 @@ function sendReport() {
   closeSheet(); refreshAlertsEverywhere(); toast('Meldung gesendet. Sichere Routen meiden die Stelle 45 Minuten lang.');
 }
 
-// ---------- sharing (window events, bridged to the Way Out channel by src/saferide-bridge.ts)
+// ---------- sharing (window events, bridged to the Way Out channel by src/saferide/main.tsx)
 function share(a) {
   dispatchEvent(new CustomEvent('sr:report', { detail: { id: a.id, lat: a.at[1], lng: a.at[0], size: a.size || null, intensity: a.intensity || null,
     panic: !!a.pin, title: a.title, from: a.from, to: a.to } }));
@@ -1440,14 +1442,15 @@ function startEmergency() {
 addEventListener('sr:escape', () => openSheet('panic'));
 addEventListener('sr:unpin', () => undoPin());
 // The control-room scenario train (Way Out): one marker with the line badge; the map flies there when the scenario starts.
-let trainMarker = null;
-addEventListener('sr:train', e => {
-  const t = e.detail; if (!map) return;
+let trainMarker = null, mapReady = false, pendingTrain;
+function placeTrain(t) {
   if (!t) { if (trainMarker) { trainMarker.remove(); trainMarker = null; } return; }
   if (!trainMarker) { const el = document.createElement('div'); el.className = 'sr-train'; trainMarker = new maplibregl.Marker({ element: el }).setLngLat([t.lng, t.lat]).addTo(map); }
   trainMarker.getElement().innerHTML = badge(t.line, 'lg'); trainMarker.setLngLat([t.lng, t.lat]);
   if (t.fly) map.flyTo({ center: [t.lng, t.lat], zoom: 14, duration: reduced() ? 0 : 900 });
-});
+}
+// before the map has loaded, keep the latest train (and its fly-to) for the load handler
+addEventListener('sr:train', e => { if (mapReady) placeTrain(e.detail); else pendingTrain = e.detail; });
 let panicCache = { key: null, html: '' }, PANIC_ALT = null, pinUndo = null;
 function dropPin() {
   const p = myPosition(); if (!p) return;
@@ -1663,7 +1666,7 @@ function bindUI() {
     if (d.act === 'dismisszone') { if (ROUTE.trip) { ROUTE.trip.dismissed.add(d.z); tripTick(); } return; }
     if (d.act === 'usealt') { if (PANIC_ALT && ROUTE.trip) { const dest = ROUTE.trip.dest; startTrip(PANIC_ALT, dest, 'safe'); panicCache.key = null; toast('Auf die sicherere Route gewechselt.'); } return; }
     if (d.act === 'unpin') { undoPin(); return; }
-    if (d.act === 'emergency') { closeSheet(); dispatchEvent(new CustomEvent('sr:emergency-open')); return; }
+    if (d.act === 'emergency') { closeSheet(); return; } // closeSheet reopens the overlay
     if (d.act === 'focustoggle') { if (ROUTE.trip) { ROUTE.trip.focus = !ROUTE.trip.focus; applyFilters(); renderCond(); } return; }
     // route sheet
     if (d.rfield) { openPicker(d.rfield === 'from' ? 'Start' : 'Wohin?', sid => { if (sid === '__me') ROUTE.from = null; else if (d.rfield === 'from') ROUTE.from = { sid }; else ROUTE.to = sid; computeRoutes(); renderRouteSheet(); },
@@ -1743,6 +1746,7 @@ async function boot() {
   map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Netz: Wikipedia via Map::Tube::Muenchen, DB-Haltestellenliste, MVV GTFS (CC BY 4.0). Grenze © OpenStreetMap-Mitwirkende' }), 'top-left');
   map.on('load', () => {
     addDynamicLayers(); applyTheme(); applyFilters(); updateZonesLayer(); probeStreets();
+    mapReady = true; if (pendingTrain) placeTrain(pendingTrain);
     $('#loading').remove();
     const ab = $('.maplibregl-ctrl-attrib'); if (ab) ab.classList.remove('maplibregl-compact-show');
     requestAnimationFrame(loop);

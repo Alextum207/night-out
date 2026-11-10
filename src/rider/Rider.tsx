@@ -8,7 +8,13 @@ import WayOutPanel, { RideBar, WayOutScreens } from './WayOutPanel'
 const shell = 'mx-auto flex min-h-dvh max-w-md flex-col gap-4 bg-paper p-4 pb-8 font-ride text-ink'
 
 export default function Rider() {
-  const ride = useRide(true)
+  const ride = useRide({ persist: true })
+  // Same theme rule as SafeRide (auto: dark 20:00-06:00); the control room on this page stays as it is.
+  useEffect(() => {
+    const h = new Date().getHours()
+    document.documentElement.dataset.mode = h >= 20 || h < 6 ? 'dark' : 'light'
+    return () => { delete document.documentElement.dataset.mode }
+  }, [])
   const { route, pos, leg, screen } = ride
 
   if (screen === 'setup' || !route || !pos || !leg) {

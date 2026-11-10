@@ -3,5 +3,5 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 @import 'leaflet/dist/leaflet.css';
-@import './tokens.css';
+@import './theme.css'; /* tokens themselves: <link> in saferide.html */
 @import './nav.css';

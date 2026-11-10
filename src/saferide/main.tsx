@@ -11,13 +11,13 @@ import { createRoot } from 'react-dom/client'
 import { getRoute, searchStations } from '../mvg'
 import type { Report } from '../types'
 import { sessionId, useRide, type Ride } from '../rider/useRide'
-import WayOutPanel, { RideBar, WayOutScreens } from '../rider/WayOutPanel'
+import WayOutPanel, { RideBar, WayOutScreens, Where } from '../rider/WayOutPanel'
 
 const UNDO_MS = 8000
 const emit = (name: string, detail?: unknown) => dispatchEvent(new CustomEvent(name, { detail }))
 
 function SafeRideLayer() {
-  const ride = useRide(false)
+  const ride = useRide({ persist: false })
   const [open, setOpen] = useState(false)
   const [undo, setUndo] = useState(false)
   const rideRef = useRef(ride)
@@ -34,7 +34,7 @@ function SafeRideLayer() {
 
   // An active SafeRide trip becomes the Way Out train (a running scenario keeps priority, see setFreeRoute).
   useEffect(() => {
-    let seq = 0
+    let seq = 0 // only the latest trip counts; bumped on unmount too
     const onTrip = async (e: Event) => {
       const t = (e as CustomEvent<{ from: string; to: string } | null>).detail, my = ++seq
       if (!t) return rideRef.current.setFreeRoute(null)
@@ -43,7 +43,7 @@ function SafeRideLayer() {
       if (my === seq && r) rideRef.current.setFreeRoute(r.route)
     }
     addEventListener('sr:trip', onTrip)
-    return () => removeEventListener('sr:trip', onTrip)
+    return () => { seq++; removeEventListener('sr:trip', onTrip) }
   }, [])
 
   // Scenario train on the SafeRide map; fly there when a scenario (re)starts.
@@ -51,8 +51,9 @@ function SafeRideLayer() {
   const trainKey = JSON.stringify(train), flownFor = useRef<string | null>(null)
   useEffect(() => {
     const t = JSON.parse(trainKey) as typeof train
-    const fly = !!t && flownFor.current !== `${ride.scenario}|${ride.route?.legs[0].stops[0].dep}`
-    if (fly) flownFor.current = `${ride.scenario}|${ride.route?.legs[0].stops[0].dep}`
+    const scenarioKey = `${ride.scenario}|${ride.route?.legs[0].stops[0].dep}`
+    const fly = !!t && flownFor.current !== scenarioKey
+    if (fly) flownFor.current = scenarioKey
     emit('sr:train', t && { ...t, fly })
   }, [trainKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -77,7 +78,7 @@ function SafeRideLayer() {
   // The train can become known after Notfall was tapped (scenario catch-up, trip mapping): tell the control room then.
   const tapped = useRef(false)
   useEffect(() => {
-    if (open && ride.pos && !tapped.current) { tapped.current = true; ride.wayOut() }
+    if (open && ride.pos && !tapped.current) { tapped.current = true; ride.wayOut(); setUndo(true) }
   })
   const end = () => { ride.fine('riding'); tapped.current = false; setOpen(false); setUndo(false) }
   const cancel = () => { emit('sr:unpin'); end() }
@@ -95,9 +96,7 @@ function RideStrip({ ride }: { ride: Ride }) {
   return createPortal(
     <div data-testid="ride-strip" className="pointer-events-auto flex min-h-[42px] items-center gap-2 rounded-full border border-hairline bg-surface px-2 pr-4 text-sm text-ink shadow-md">
       <span className="rounded-full bg-ink px-2.5 py-1 font-bold text-paper">{leg.line}</span>
-      <span>
-        {pos.state === 'train' ? <>Nächster Halt <b>{pos.nextStop.name}</b> · {pos.etaMin} Min</> : <>Am Bahnsteig <b>{pos.nextStop.name}</b> · Abfahrt {pos.etaMin} Min</>}
-      </span>
+      <span><Where pos={pos} /></span>
     </div>,
     top,
   )
