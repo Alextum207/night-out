@@ -1,6 +1,6 @@
 // Mock data: route snapshots (captured once from live MVG /routes on 2026-11-09), security teams,
 // walking directions, occupancy per car, events. Pure module, safe for selfcheck.
-import type { Route, ScenarioId, Stop } from './types'
+import type { Crowd, Route, ScenarioId, Stop } from './types'
 import { normalize, type RawConnection } from './normalize'
 import arena from './data/arena.json'
 import garching from './data/garching.json'
@@ -74,3 +74,15 @@ export const EVENTS: CityEvent[] = [
   { name: 'Konzert: Paula Hartmann', venue: 'Olympiahalle', ends: '23:00', lines: ['U3'] },
   { name: 'Semesterparty TUM', venue: 'Campus Garching', ends: '02:00', lines: ['U6'] },
 ]
+
+// Crowds at station exits (mock until the control room reports real ones).
+// busy = normal nightlife, safe to walk into when followed; unsafe = drunk fans, always avoided.
+export const MOCK_CROWDS: Record<string, Crowd[]> = {
+  'de:09162:500': [
+    { lat: 48.16202, lng: 11.58668, kind: 'unsafe', label: 'Fangruppe an Ausgang E' },
+    { lat: 48.16270, lng: 11.58615, kind: 'busy', label: 'Belebte Leopoldstraße (Bars)' },
+  ],
+  'de:09184:460': [
+    { lat: 48.26390, lng: 11.67108, kind: 'busy', label: 'Studierende am Campus-Ausgang' },
+  ],
+}

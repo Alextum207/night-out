@@ -24,7 +24,7 @@ export function decodePolyline(s: string): LatLng[] {
 
 type RawStop = {
   name: string; stationGlobalId: string; latitude: number; longitude: number; plannedDeparture: string
-  hasOutOfOrderEscalator: boolean; hasOutOfOrderElevator: boolean
+  hasOutOfOrderEscalator: boolean; hasOutOfOrderElevator: boolean; platform?: number
 }
 type RawPart = {
   line: { label: string; transportType: string; destination: string }
@@ -35,6 +35,7 @@ export type RawConnection = { parts: RawPart[] }
 const stop = (s: RawStop): Stop => ({
   id: s.stationGlobalId, name: s.name, lat: s.latitude, lng: s.longitude,
   dep: Date.parse(s.plannedDeparture), escalatorOut: s.hasOutOfOrderEscalator, elevatorOut: s.hasOutOfOrderElevator,
+  ...(s.platform !== undefined && { platform: s.platform }),
 })
 
 // Drops footpaths; one leg per vehicle.

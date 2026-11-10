@@ -10,7 +10,11 @@ export type Stop = {
   dep: number // planned departure (arrival time for the last stop of a leg)
   escalatorOut: boolean
   elevatorOut: boolean
+  platform?: number // MVG track number, used to find the platform in the indoor graph
 }
+
+// A crowd on the rider's map. unsafe = reported drunk group / harassment, never a safe place to go.
+export type Crowd = { lat: number; lng: number; kind: 'busy' | 'unsafe'; label: string }
 
 export type Leg = {
   line: string // "U6"
