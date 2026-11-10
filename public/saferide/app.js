@@ -1,5 +1,8 @@
 (() => {
 'use strict';
+const N = x => x; // marks data strings that tt() translates when they are shown
+const LOC = window.SR_LANG === 'en' ? 'en-GB' : 'de-DE';
+const tt = window.t || ((s, v) => v ? s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) : s); // public/saferide/i18n.js
 
 // =================================================================== constants
 const MODE_LABEL = { UBAHN: 'U-Bahn', SBAHN: 'S-Bahn', TRAM: 'Tram', METROBUS: 'MetroBus', BUS: 'Bus' };
@@ -28,11 +31,11 @@ const SPEED = { UBAHN: 34 / 3.6, SBAHN: 54 / 3.6, TRAM: 19 / 3.6 };
 const DWELL = { UBAHN: 25, SBAHN: 35, TRAM: 18 };
 const SEV_COLOR = { 1: '#D9B200', 2: '#E08A00', 3: '#D21F3C' };
 const KIND = {
-  report: { label: 'Meldung', short: 'Meldung' },
-  disruption: { label: 'Störung', short: 'Verkehr' },
-  construction: { label: 'Baustelle', short: 'Baustelle' },
-  news: { label: 'Nachrichten', short: 'News' },
-  weather: { label: 'Wetter', short: 'Wetter' },
+  report: { label: N('Meldung'), short: N('Meldung') },
+  disruption: { label: N('Störung'), short: N('Verkehr') },
+  construction: { label: N('Baustelle'), short: N('Baustelle') },
+  news: { label: N('Nachrichten'), short: N('News') },
+  weather: { label: N('Wetter'), short: N('Wetter') },
 };
 const MAP_THEME = {
   light: { land: '#E7EBEE', outside: '#DCE1E5', boundary: '#C3CBD3', water: '#A9C8DE', park: '#D3E0D0', place: '#7D8995', halo: '#E7EBEE', casing: '#E7EBEE',
@@ -90,16 +93,15 @@ let ROUTE = { from: null, to: null, mode: null, results: null, chosen: null, tri
 const SOCIAL = {
   sharing: false, started: 0, ends: 0, selected: 'mia', demoStarted: Date.now(),
   friends: [
-    { id: 'mia', name: 'Mia', initial: 'M', color: '#6755D9', line: 'U6', to: 'Garching', phase: .48, speed: 8.8, battery: 74, carriage: 'Wagen 2 · ruhig', shared: 'seit 22 Min' },
-    { id: 'jonas', name: 'Jonas', initial: 'J', color: '#167A5A', line: 'U2', to: 'Feldmoching', phase: .36, speed: 8.2, battery: 41, carriage: 'Wagen 4 · mittel', shared: 'seit 8 Min' },
-    { id: 'lea', name: 'Lea', initial: 'L', color: '#D56A3D', walking: true, station: 'Marienplatz', battery: 88, shared: 'seit 4 Min' },
+    { id: 'mia', name: 'Mia', initial: 'M', color: '#6755D9', line: 'U6', to: 'Garching', phase: .48, speed: 8.8, battery: 74, carriage: N('Wagen 2 · ruhig'), shared: N('seit 22 Min') },
+    { id: 'jonas', name: 'Jonas', initial: 'J', color: '#167A5A', line: 'U2', to: 'Feldmoching', phase: .36, speed: 8.2, battery: 41, carriage: N('Wagen 4 · mittel'), shared: N('seit 8 Min') },
+    { id: 'lea', name: 'Lea', initial: 'L', color: '#D56A3D', walking: true, station: 'Marienplatz', battery: 88, shared: N('seit 4 Min') },
   ],
 };
 let FRIEND_MARKERS = new Map(), socialTimer = null;
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const tt = window.t || ((s, v) => v ? s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) : s); // public/saferide/i18n.js
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const metres = (a, b) => { const k = Math.cos((a[1] + b[1]) / 2 * Math.PI / 180); return Math.hypot((b[0] - a[0]) * k * 111320, (b[1] - a[1]) * 110540); };
 const bearing = (a, b) => { const k = Math.cos(a[1] * Math.PI / 180); return (Math.atan2((b[0] - a[0]) * k, b[1] - a[1]) * 180 / Math.PI + 360) % 360; };
@@ -125,9 +127,9 @@ const mz = (ms = Date.now()) => new Date(ms + tzOff(ms)); // read with getUTC…
 const mzHour = (ms = Date.now()) => mz(ms).getUTCHours();
 function secOfDay(ms = Date.now()) { const d = mz(ms); return d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds() + d.getUTCMilliseconds() / 1000; }
 function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return Math.abs(h); }
-const clock = ms => { try { return new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: TZ }); } catch (e) { return new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); } };
+const clock = ms => { try { return new Date(ms).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit', timeZone: TZ }); } catch (e) { return new Date(ms).toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit' }); } };
 const mins = s => Math.max(0, Math.round(s / 60));
-function ago(ms) { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? 'gerade eben' : m < 60 ? `vor ${m} Min` : `vor ${Math.round(m / 60)} Std`; }
+function ago(ms) { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? tt('gerade eben') : m < 60 ? tt('vor {n} Min', { n: m }) : tt('vor {n} Std', { n: Math.round(m / 60) }); }
 function badgeStyle(l) {
   const st = LSTYLE[l]; if (!st) return 'background:#5B6B7C;color:#fff';
   const bg = st.bg2 ? `linear-gradient(135deg, ${st.bg} 0 50%, ${st.bg2} 50% 100%)` : st.bg;
@@ -267,26 +269,26 @@ function tonight(h, mi) { const now = Date.now(), z = mz(now); let t = Date.UTC(
 function demoAlerts() {
   const now = Date.now(), m = 60000;
   return [
-    { id: 'demo-r1', kind: 'report', sev: 3, title: 'Große Gruppe, aggressiv', body: '25+ Personen am U-Bahnsteig. Von 3 Personen bestätigt.', stations: ['Sendlinger Tor'], r: 260, from: now - 12 * m, to: now + 33 * m, source: 'Meldung', demo: true },
-    { id: 'demo-r2', kind: 'report', sev: 2, title: 'Mittlere Gruppe, belästigt Leute', body: '10 bis 25 Personen am Ausgang Bayerstraße.', stations: ['Hauptbahnhof'], r: 260, from: now - 26 * m, to: now + 19 * m, source: 'Meldung', demo: true },
-    { id: 'demo-r3', kind: 'report', sev: 1, title: 'Kleine Gruppe, laut', body: '5 bis 10 Personen am S-Bahnsteig.', stations: ['Ostbahnhof'], r: 240, from: now - 8 * m, to: now + 37 * m, source: 'Meldung', demo: true },
-    { id: 'demo-n2', kind: 'news', sev: 2, title: 'Polizeieinsatz am Karlsplatz (Stachus)', body: 'Die Polizei ist nach einer Schlägerei im Sperrengeschoss vor Ort. Meide den Bereich, wenn du kannst.', stations: ['Karlsplatz'], r: 320, from: now - 35 * m, to: now + 60 * m, source: 'Polizeimeldung', demo: true },
-    { id: 'demo-d1', kind: 'disruption', sev: 1, title: 'U2 und U8: bis zu 10 Minuten Verspätung', body: 'Nach einem Notarzteinsatz am Hauptbahnhof. Die Züge fahren wieder.', lines: ['U2', 'U8'], delay: 300, from: now - 18 * m, to: now + 40 * m, source: 'MVG', demo: true },
-    { id: 'demo-c1', kind: 'construction', sev: 2, title: 'U3: Sendlinger Tor ↔ Implerstraße Ersatzverkehr mit Bussen', body: 'Sanierungsarbeiten. Ersatzbusse alle 5 Minuten, plane 10 Minuten mehr ein. Die U6 fährt normal.', lines: ['U3'], segment: { lines: ['U3'], a: 'Sendlinger Tor', b: 'Implerstr.' }, from: now - 3 * 864e5, to: now + 14 * 864e5, source: 'MVG', demo: true },
-    { id: 'demo-c2', kind: 'construction', sev: 2, title: 'S-Bahn-Stammstrecke Pasing ↔ Ostbahnhof ab 22:00 gesperrt', body: 'Nachtarbeiten auf der Stammstrecke. Nimm U4/U5 oder Ersatzbusse. S-Bahnen enden in Pasing oder am Ostbahnhof.', lines: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S8'], segment: { lines: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S8'], a: 'Pasing', b: 'Ostbahnhof' }, from: tonight(22, 0), to: tonight(22, 0) + 7.5 * 3600e3, source: 'MVG', demo: true },
-    { id: 'demo-n1', kind: 'news', sev: 2, title: 'FC-Bayern-Heimspiel endet gegen 22:30', body: 'Rund 75.000 Fans verlassen die Allianz Arena. Bis etwa 23:45 Gedränge in Fröttmaning und volle U6-Züge Richtung Münchner Freiheit.', lines: ['U6'], stations: ['Fröttmaning', 'Münchner Freiheit'], r: 420, from: tonight(22, 15), to: tonight(23, 45), source: 'Veranstaltungskalender', demo: true },
+    { id: 'demo-r1', kind: 'report', sev: 3, title: N('Große Gruppe, aggressiv'), body: N('25+ Personen am U-Bahnsteig. Von 3 Personen bestätigt.'), stations: ['Sendlinger Tor'], r: 260, from: now - 12 * m, to: now + 33 * m, source: N('Meldung'), demo: true },
+    { id: 'demo-r2', kind: 'report', sev: 2, title: N('Mittlere Gruppe, belästigt Leute'), body: N('10 bis 25 Personen am Ausgang Bayerstraße.'), stations: ['Hauptbahnhof'], r: 260, from: now - 26 * m, to: now + 19 * m, source: N('Meldung'), demo: true },
+    { id: 'demo-r3', kind: 'report', sev: 1, title: N('Kleine Gruppe, laut'), body: N('5 bis 10 Personen am S-Bahnsteig.'), stations: ['Ostbahnhof'], r: 240, from: now - 8 * m, to: now + 37 * m, source: N('Meldung'), demo: true },
+    { id: 'demo-n2', kind: 'news', sev: 2, title: N('Polizeieinsatz am Karlsplatz (Stachus)'), body: N('Die Polizei ist nach einer Schlägerei im Sperrengeschoss vor Ort. Meide den Bereich, wenn du kannst.'), stations: ['Karlsplatz'], r: 320, from: now - 35 * m, to: now + 60 * m, source: N('Polizeimeldung'), demo: true },
+    { id: 'demo-d1', kind: 'disruption', sev: 1, title: N('U2 und U8: bis zu 10 Minuten Verspätung'), body: N('Nach einem Notarzteinsatz am Hauptbahnhof. Die Züge fahren wieder.'), lines: ['U2', 'U8'], delay: 300, from: now - 18 * m, to: now + 40 * m, source: N('MVG'), demo: true },
+    { id: 'demo-c1', kind: 'construction', sev: 2, title: N('U3: Sendlinger Tor ↔ Implerstraße Ersatzverkehr mit Bussen'), body: N('Sanierungsarbeiten. Ersatzbusse alle 5 Minuten, plane 10 Minuten mehr ein. Die U6 fährt normal.'), lines: ['U3'], segment: { lines: ['U3'], a: 'Sendlinger Tor', b: 'Implerstr.' }, from: now - 3 * 864e5, to: now + 14 * 864e5, source: N('MVG'), demo: true },
+    { id: 'demo-c2', kind: 'construction', sev: 2, title: N('S-Bahn-Stammstrecke Pasing ↔ Ostbahnhof ab 22:00 gesperrt'), body: N('Nachtarbeiten auf der Stammstrecke. Nimm U4/U5 oder Ersatzbusse. S-Bahnen enden in Pasing oder am Ostbahnhof.'), lines: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S8'], segment: { lines: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S8'], a: 'Pasing', b: 'Ostbahnhof' }, from: tonight(22, 0), to: tonight(22, 0) + 7.5 * 3600e3, source: N('MVG'), demo: true },
+    { id: 'demo-n1', kind: 'news', sev: 2, title: N('FC-Bayern-Heimspiel endet gegen 22:30'), body: N('Rund 75.000 Fans verlassen die Allianz Arena. Bis etwa 23:45 Gedränge in Fröttmaning und volle U6-Züge Richtung Münchner Freiheit.'), lines: ['U6'], stations: ['Fröttmaning', 'Münchner Freiheit'], r: 420, from: tonight(22, 15), to: tonight(23, 45), source: N('Veranstaltungskalender'), demo: true },
   ];
 }
 function wmo(code) {
-  if (code == null) return ['Unbekannt', 'cloud'];
-  if (code === 0) return ['Klar', 'clear']; if (code <= 2) return ['Teils bewölkt', 'partly']; if (code === 3) return ['Bedeckt', 'cloud'];
-  if (code <= 48) return ['Nebel', 'fog']; if (code <= 57) return ['Nieselregen', 'rain']; if (code <= 65) return [code >= 65 ? 'Starkregen' : code >= 63 ? 'Regen' : 'Leichter Regen', 'rain'];
-  if (code <= 67) return ['Eisregen', 'rain']; if (code <= 77) return ['Schnee', 'snow']; if (code <= 82) return ['Regenschauer', 'rain']; if (code <= 86) return ['Schneeschauer', 'snow'];
-  return ['Gewitter', 'storm'];
+  if (code == null) return [N('Unbekannt'), 'cloud'];
+  if (code === 0) return [N('Klar'), 'clear']; if (code <= 2) return [N('Teils bewölkt'), 'partly']; if (code === 3) return [N('Bedeckt'), 'cloud'];
+  if (code <= 48) return [N('Nebel'), 'fog']; if (code <= 57) return [N('Nieselregen'), 'rain']; if (code <= 65) return [N(code >= 65 ? 'Starkregen' : code >= 63 ? 'Regen' : 'Leichter Regen'), 'rain'];
+  if (code <= 67) return [N('Eisregen'), 'rain']; if (code <= 77) return [N('Schnee'), 'snow']; if (code <= 82) return [N('Regenschauer'), 'rain']; if (code <= 86) return [N('Schneeschauer'), 'snow'];
+  return [N('Gewitter'), 'storm'];
 }
 function demoWeather() {
   const d = new Date(), set = sunsetApprox(d);
-  return { live: false, temp: 6, code: 61, text: 'Leichter Regen', kind: 'rain', wind: 14, raining: true, rainUntil: tonight(23, 0), sunset: set };
+  return { live: false, temp: 6, code: 61, text: N('Leichter Regen'), kind: 'rain', wind: 14, raining: true, rainUntil: tonight(23, 0), sunset: set };
 }
 function sunsetApprox(d) {
   // NOAA-style approximation, good to a few minutes for Munich
@@ -318,7 +320,7 @@ async function loadWeather() {
     // the claude.ai preview can't reach Open-Meteo, so it shows example weather; a hosted copy says it has none
     if (PREVIEW) { SOURCES.weather = 'demo'; return demoWeather(); }
     SOURCES.weather = 'off';
-    return { live: false, unknown: true, temp: null, text: 'Keine Wetterdaten', kind: 'cloud', wind: 0, raining: false, rainUntil: null, sunset: sunsetApprox(new Date()) };
+    return { live: false, unknown: true, temp: null, text: N('Keine Wetterdaten'), kind: 'cloud', wind: 0, raining: false, rainUntil: null, sunset: sunsetApprox(new Date()) };
   }
 }
 function matchStations(text) {
@@ -358,7 +360,7 @@ function parseMvg(list) {
       if (sm) { const a = matchStations(sm[1])[0], b = matchStations(sm[2])[0]; if (a && b && a !== b) segment = { lines, a: a.name, b: b.name }; }
     }
     const sev = /unterbrochen|unterbrechung|gesperrt|kein zugverkehr|ausfall|fällt aus|fallen aus|polizei|notarzt|feuerwehr/i.test(txt) ? 2 : 1;
-    out.push({ id: 'mvg-' + hash(title + from), kind, sev, title: title || 'MVG-Meldung', body: desc, lines: allLines, segment,
+    out.push({ id: 'mvg-' + hash(title + from), kind, sev, title: title || N('MVG-Meldung'), body: desc, lines: allLines, segment,
                stations: segment ? [] : named.map(s => s.name), r: 220, delay: kind === 'disruption' ? sev * 180 : 0,
                from, to, source: 'MVG', live: true });
   }
@@ -553,8 +555,8 @@ function planRoutes(origin, destSid) {
 const Loc = { mode: 'off', status: 'off', buf: [], last: null, watch: null, speed: 0, match: null, cands: [], override: null, demo: null, estimated: false, err: null, follow: false, vehicleSince: 0, lastAnalyze: 0 };
 function locStart(userInitiated) {
   if (Loc.mode === 'demo') locStopDemo();
-  if (!navigator.geolocation) { locFail('Dieser Browser kann keinen Standort teilen.'); return; }
-  if (window.isSecureContext === false) { locFail('Standort geht nur über eine sichere Adresse (https://). Öffne SafeRide über den https-Link oder probier die Demo-Fahrt.'); return; }
+  if (!navigator.geolocation) { locFail(tt('Dieser Browser kann keinen Standort teilen.')); return; }
+  if (window.isSecureContext === false) { locFail(tt('Standort geht nur über eine sichere Adresse (https://). Öffne SafeRide über den https-Link oder probier die Demo-Fahrt.')); return; }
   Loc.mode = 'gps'; Loc.status = 'locating'; Loc.err = null; renderTrack();
   try {
     Loc.watch = navigator.geolocation.watchPosition(pos => {
@@ -566,10 +568,10 @@ function locStart(userInitiated) {
       pushFix({ t, lng: c.longitude, lat: c.latitude, acc: c.accuracy || 30, speed: (c.speed == null || isNaN(c.speed)) ? null : c.speed });
     }, err => {
       if (Loc.mode !== 'gps') return;
-      if (err.code === 1) locFail(window.self !== window.top ? 'Diese Vorschau darf deinen Standort nicht nutzen. Öffne SafeRide unter seiner eigenen Adresse oder probier die Demo-Fahrt.' : 'Standortzugriff wurde abgelehnt. Erlaube ihn in den Browser-Einstellungen, damit SafeRide sieht, in welchem Zug du bist.');
-      else { Loc.err = 'Noch kein GPS-Signal. Unter der Erde ist das normal.'; renderTrack(); }
+      if (err.code === 1) locFail(tt(window.self !== window.top ? 'Diese Vorschau darf deinen Standort nicht nutzen. Öffne SafeRide unter seiner eigenen Adresse oder probier die Demo-Fahrt.' : 'Standortzugriff wurde abgelehnt. Erlaube ihn in den Browser-Einstellungen, damit SafeRide sieht, in welchem Zug du bist.'));
+      else { Loc.err = tt('Noch kein GPS-Signal. Unter der Erde ist das normal.'); renderTrack(); }
     }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
-  } catch (e) { locFail('Diese Vorschau darf deinen Standort nicht nutzen. Probier die Demo-Fahrt.'); }
+  } catch (e) { locFail(tt('Diese Vorschau darf deinen Standort nicht nutzen. Probier die Demo-Fahrt.')); }
   if (userInitiated) { P.tracking = true; saveP(); }
 }
 function locFail(msg) { if (Loc.watch != null) try { navigator.geolocation.clearWatch(Loc.watch); } catch (e) {} Loc.watch = null; Loc.mode = 'off'; Loc.status = 'error'; Loc.err = msg; renderTrack(); }
@@ -712,7 +714,7 @@ function startDemoRide(silent = false) {
     pushFix({ t: now, lng: lng + n(), lat: lat + n() * .7, acc: 12 + Math.random() * 10, speed: null });
   }, 1000);
   closeSheet(); closeCard(); renderTrack();
-  if (!silent) toast('Demo-Fahrt: Du wartest am Odeonsplatz und fährst dann mit der U3 Richtung Moosach, in 3-facher Geschwindigkeit.', 4800);
+  if (!silent) toast(tt('Demo-Fahrt: Du wartest am Odeonsplatz und fährst dann mit der U3 Richtung Moosach, in 3-facher Geschwindigkeit.'), 4800);
 }
 function locStopDemo(silent) {
   clearInterval(Loc.demoTimer); Loc.demoTimer = null;
@@ -915,7 +917,7 @@ function applyFilters() {
   vv(['st-major', 'st-minor', 'lbl-major', 'lbl-minor'], F.stations || focus); vv(['veh-dot', 'veh-icon'], F.vehicles || focus); vv(['zones-fill', 'zones-icon', 'closures'], F.zones || focus);
   vv(['st-pref', 'st-avoid'], !focus);
   applyHighlight(); applyStreetStyle(); tick(true); syncFilterUI(); saveF();
-  if (vis.size === 0 && !focus) toast('Keine Linien ausgewählt. Öffne die Filter und wähle welche aus.');
+  if (vis.size === 0 && !focus) toast(tt('Keine Linien ausgewählt. Tippe in der Leiste rechts auf ein Verkehrsmittel.'));
 }
 function applyHighlight() {
   if (!map || !map.getLayer('veh-icon')) return;
@@ -991,7 +993,7 @@ function setCardH() { const c = $('#card'), t = $('#trip'); const ch = c.classLi
 const cardRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(setCardH) : null;
 function openCard(html) { const c = $('#card'); c.innerHTML = html; c.classList.add('open'); c.scrollTop = 0; setCardH(); if (cardRO) { cardRO.observe(c); cardRO.observe($('#trip')); } }
 function closeCard() { $('#card').classList.remove('open'); selected = null; cardRefresh = null; setCardH(); applyHighlight(); }
-const closeX = `<button class="closebtn" type="button" data-cardclose aria-label="Schließen">${ICON.close}</button>`;
+const closeX = `<button class="closebtn" type="button" data-cardclose aria-label="${tt('Schließen')}">${ICON.close}</button>`;
 
 const TAB_OF = { friends: 'friends', alerts: 'alerts', profile: 'profile' };
 function openSheet(id) {
@@ -1034,7 +1036,7 @@ function renderPick(q, opts = pickOpts) {
   else list = list.filter(s => s.rank >= 4).sort((a, b) => a.name.localeCompare(b.name));
   const quick = (opts.quick || []).map(x => `<button class="result" type="button" data-pick="${esc(x.id)}">${x.icon || ICON.pin}<span><span class="nm">${esc(x.label)}</span><br><span class="t">${esc(x.sub || '')}</span></span></button>`).join('');
   $('#pickResults').innerHTML = (q ? '' : quick) + list.slice(0, 30).map(s => `<button class="result" type="button" data-pick="${esc(s.id)}"><span class="nm">${esc(s.name)}</span><span class="ln">${s.lines.filter(l => !l.startsWith('N')).slice(0, 5).map(l => badge(l, 'xs')).join('')}</span></button>`).join('')
-    + (q && !list.length ? `<p class="note">Keine Haltestelle passt zu „${esc(q)}“.</p>` : '');
+    + (q && !list.length ? `<p class="note">${tt('Keine Haltestelle passt zu „{q}“.', { q: esc(q) })}</p>` : '');
 }
 
 // ---------- top: conditions pill
@@ -1049,7 +1051,7 @@ function wxIcon(kind, night) {
 function activeAlerts() { return ALERTS.filter(a => activeNow(a)); }
 function renderFocusChip() {
   const tr = ROUTE.trip, el = $('#focusChip'); if (!tr) { setHTML(el, ''); return; }
-  setHTML(el, `<span>${tr.focus ? 'Nur deine Linien' : 'Alle Linien'}</span><span class="bs">${tr.lines.map(l => badge(l, 'xs')).join('')}</span><button type="button" data-act="focustoggle">${tr.focus ? 'Alle zeigen' : 'Fokus'}</button>`);
+  setHTML(el, `<span>${tt(tr.focus ? 'Nur deine Linien' : 'Alle Linien')}</span><span class="bs">${tr.lines.map(l => badge(l, 'xs')).join('')}</span><button type="button" data-act="focustoggle">${tt(tr.focus ? 'Alle zeigen' : 'Fokus')}</button>`);
 }
 function renderCond() {
   renderFocusChip();
@@ -1061,29 +1063,29 @@ function refreshAlertsEverywhere() { renderCond(); updateZonesLayer(); if (openS
 // ---------- tracking pill + sheet
 function trackText() {
   if (Loc.mode === 'off') {
-    if (Loc.status === 'error') return { l1: 'Standort nicht verfügbar', l2: 'Tippen für Optionen', live: false };
-    return { l1: 'Standort verwenden', l2: 'Für Fahrtbegleitung und Hinweise', live: false };
+    if (Loc.status === 'error') return { l1: tt('Standort nicht verfügbar'), l2: tt('Tippen für Optionen'), live: false };
+    return { l1: tt('Standort verwenden'), l2: tt('Für Fahrtbegleitung und Hinweise'), live: false };
   }
-  if (Loc.status === 'locating') return { l1: 'Standort wird erkannt…', l2: Loc.mode === 'demo' ? 'Verkehrsmittel wird erkannt' : 'Warte auf GPS', live: true };
-  if (myPosition() && !inArea(myPosition())) return { l1: 'Du bist außerhalb von München', l2: 'Routen starten am Odeonsplatz, bis du zurück bist', live: true };
+  if (Loc.status === 'locating') return { l1: tt('Standort wird erkannt…'), l2: tt(Loc.mode === 'demo' ? 'Verkehrsmittel wird erkannt' : 'Warte auf GPS'), live: true };
+  if (myPosition() && !inArea(myPosition())) return { l1: tt('Du bist außerhalb von München'), l2: tt('Routen starten am Odeonsplatz, bis du zurück bist'), live: true };
   const near = nearestStation(myPosition(), 160);
   const m = Loc.match;
   if (Loc.status === 'vehicle' && m) {
     const nxt = m.pd.names[m.next];
-    const when = m.eta < 50 ? 'jetzt' : `${mins(m.eta)} Min`;
-    return { badge: m.line, l1: `Richtung ${m.to}`, l2: `${m.atStop ? 'An' : 'Nächster Halt'} ${nxt}${m.atStop ? '' : ', ' + when}${Loc.estimated ? ', geschätzt' : ''}`, live: true };
+    const when = m.eta < 50 ? tt('jetzt') : tt('{n} Min', { n: mins(m.eta) });
+    return { badge: m.line, l1: tt('Richtung {to}', { to: m.to }), l2: `${m.atStop ? tt('An {name}', { name: nxt }) : tt('Nächster Halt') + ' ' + nxt}${m.atStop ? '' : ', ' + when}${Loc.estimated ? tt(', geschätzt') : ''}`, live: true };
   }
-  if (Loc.status === 'vehicle') return { l1: `Unterwegs mit ${Math.round(Loc.speed)} km/h`, l2: Loc.cands.length ? 'Welche Linie fährst du? Tippen zum Auswählen' : 'Linie wird erkannt…', live: true };
-  if (Loc.status === 'walking') return { l1: near ? `Zu Fuß bei ${near.name}` : 'Zu Fuß', l2: tripHint() || 'Standort ist live', live: true };
-  if (Loc.rough && Loc.mode === 'gps') return { l1: 'Standort ist ungenau', l2: `±${Math.round(Loc.last.acc)} m. Geh ins Freie oder warte auf GPS`, live: true };
-  return { l1: near ? `An ${near.name}` : 'Stehst still', l2: tripHint() || (Loc.mode === 'demo' ? 'U3 wird automatisch erkannt' : 'Standort ist live'), live: true };
+  if (Loc.status === 'vehicle') return { l1: tt('Unterwegs mit {n} km/h', { n: Math.round(Loc.speed) }), l2: tt(Loc.cands.length ? 'Welche Linie fährst du? Tippen zum Auswählen' : 'Linie wird erkannt…'), live: true };
+  if (Loc.status === 'walking') return { l1: near ? tt('Zu Fuß bei {name}', { name: near.name }) : tt('Zu Fuß'), l2: tripHint() || tt('Standort ist live'), live: true };
+  if (Loc.rough && Loc.mode === 'gps') return { l1: tt('Standort ist ungenau'), l2: tt('±{n} m. Geh ins Freie oder warte auf GPS', { n: Math.round(Loc.last.acc) }), live: true };
+  return { l1: near ? tt('An {name}', { name: near.name }) : tt('Stehst still'), l2: tripHint() || tt(Loc.mode === 'demo' ? 'U3 wird automatisch erkannt' : 'Standort ist live'), live: true };
 }
 function tripHint() {
   const r = ROUTE.trip; if (!r) return '';
   const t = secOfDay(); const leg = r.legs.find(l => l.arr > t);
-  if (!leg) return 'Fahrt: Du solltest angekommen sein';
-  if (leg.type === 'walk') return `Fahrt: zu Fuß nach ${stName(typeof leg.to === 'string' ? leg.to : '')}`;
-  return `Fahrt: ${leg.line} um ${clock(Date.now() + (leg.dep - t) * 1000)} ab ${stName(leg.fromSid)}`;
+  if (!leg) return tt('Fahrt: Du solltest angekommen sein');
+  if (leg.type === 'walk') return tt('Fahrt: zu Fuß nach {name}', { name: stName(typeof leg.to === 'string' ? leg.to : '') });
+  return tt('Fahrt: {line} um {t} ab {name}', { line: leg.line, t: clock(Date.now() + (leg.dep - t) * 1000), name: stName(leg.fromSid) });
 }
 function nearestStation(p, maxM = 200) { if (!p) return null; let best = null; for (const s of Object.values(ST)) { const m = metres(p, [s.lng, s.lat]); if (m < maxM && (!best || m < best.m)) best = { ...s, m }; } return best; }
 function renderTrack() {
@@ -1094,20 +1096,19 @@ function renderTrack() {
 }
 function renderTrackSheet() {
   const b = $('#trackBody'), m = Loc.match, t = trackText();
-  if (!b.querySelector('#trkStatus')) b.innerHTML = '<div id="trkStatus"></div><div id="trkErr"></div><div id="trkCands"></div><div id="trkKv"></div><div class="group" id="trkBtns"></div><p class="note">SafeRide liest deinen Standort etwa einmal pro Sekunde, solange die App offen ist, und behält die letzten 3 Minuten auf diesem Handy, um Tempo und Linie zu erkennen. Nichts wird hochgeladen. Im Tunnel fällt GPS oft aus; dann bewegt SafeRide dich nach Fahrplan entlang deiner Linie und markiert den Standort als geschätzt.</p>';
+  if (!b.querySelector('#trkStatus')) b.innerHTML = '<div id="trkStatus"></div><div id="trkErr"></div><div id="trkCands"></div><div id="trkKv"></div><div class="group" id="trkBtns"></div><p class="note">' + tt('In diesem Prototyp ist die Fahrt simuliert: Du fährst mit der U3 vom Odeonsplatz Richtung Moosach, in 3-facher Geschwindigkeit. Im Tunnel fällt GPS aus; dann bewegt SafeRide dich nach Fahrplan und markiert den Standort als geschätzt.') + '</p>';
   const on = Loc.mode !== 'off';
-  const statusLabel = { off: 'Aus', error: 'Nicht verfügbar', locating: 'Suche', still: 'Steht still', walking: 'Zu Fuß', vehicle: 'Im Fahrzeug', unknown: 'Suche' }[Loc.status] || Loc.status;
-  setHTML($('#trkStatus'), on ? `<div class="escape">${m && Loc.status === 'vehicle' ? `<div class="big">${badge(m.line, 'lg')} Richtung ${esc(m.to)}</div><div class="why">${esc(t.l2)}</div>` : `<div class="big" style="font-size:22px">${esc(t.l1)}</div><div class="why">${esc(t.l2)}</div>`}</div>` : '');
-  setHTML($('#trkErr'), Loc.err ? `<div class="banner">${ICON.info}<span>${esc(Loc.err)}</span></div>${window.self !== window.top ? `<a class="btn block" href="${esc(location.href)}" target="_blank" rel="noopener" style="margin-top:10px;text-decoration:none">SafeRide in neuem Tab öffnen</a>` : ''}` : '');
-  setHTML($('#trkCands'), Loc.cands.length ? `<div class="group"><h3>Welche Linie fährst du?</h3><p>Mehrere Linien teilen sich diese Strecke. Wähle deine, damit der Notfall-Modus weiß, wo du bist.</p>
-      <div class="results">${Loc.cands.map(c => `<button class="result" type="button" data-iam="${esc(c.line)}|${esc(c.to)}">${badge(c.line, 'sm')}<span class="nm">Richtung ${esc(c.to)}</span></button>`).join('')}</div></div>` : '');
-  setHTML($('#trkKv'), on ? `<dl class="kv"><dt>Quelle</dt><dd>${Loc.mode === 'demo' ? 'Demo-Fahrt (simuliertes GPS)' : 'Handy-GPS'}</dd><dt>Status</dt><dd>${statusLabel}</dd>
-      <dt>Tempo</dt><dd>${Math.round(Loc.speed)} km/h</dd><dt>Genauigkeit</dt><dd>${Loc.last ? '±' + Math.round(Loc.last.acc) + ' m' : '–'}</dd>
-      <dt>Letzte Ortung</dt><dd>${Loc.last ? ago(Loc.last.t) : '–'}${Loc.estimated ? ', Standort nach Fahrplan geschätzt' : ''}</dd>
-      <dt>Erkennung</dt><dd>${m ? ({ vehicle: 'Fahrzeug erkannt', line: 'Linie erkannt', you: 'Von dir gewählt' }[m.method]) : 'Noch keine'}</dd></dl>` : '');
-  setHTML($('#trkBtns'), `${on ? `<button class="btn block" type="button" data-loc="stop">Ortung beenden</button>` : `<button class="btn primary block" type="button" data-loc="start">Standort einschalten</button>`}
-      ${Loc.mode !== 'demo' ? `<button class="btn block" type="button" data-loc="demo">Demo-Fahrt mit der U3 starten</button>` : ''}
-      ${ROUTE.trip ? `<button class="btn block" type="button" data-act="endtrip">Fahrt beenden</button>` : ''}`);
+  const statusLabel = tt({ off: 'Aus', error: 'Nicht verfügbar', locating: 'Suche', still: 'Steht still', walking: 'Zu Fuß', vehicle: 'Im Fahrzeug', unknown: 'Suche' }[Loc.status] || Loc.status);
+  setHTML($('#trkStatus'), on ? `<div class="escape">${m && Loc.status === 'vehicle' ? `<div class="big">${badge(m.line, 'lg')} ${esc(tt('Richtung {to}', { to: m.to }))}</div><div class="why">${esc(t.l2)}</div>` : `<div class="big" style="font-size:22px">${esc(t.l1)}</div><div class="why">${esc(t.l2)}</div>`}</div>` : '');
+  setHTML($('#trkErr'), Loc.err ? `<div class="banner">${ICON.info}<span>${esc(Loc.err)}</span></div>${window.self !== window.top ? `<a class="btn block" href="${esc(location.href)}" target="_blank" rel="noopener" style="margin-top:10px;text-decoration:none">${tt('SafeRide in neuem Tab öffnen')}</a>` : ''}` : '');
+  setHTML($('#trkCands'), Loc.cands.length ? `<div class="group"><h3>${tt('Welche Linie fährst du?')}</h3><p>${tt('Mehrere Linien teilen sich diese Strecke. Wähle deine, damit Way Out weiß, wo du bist.')}</p>
+      <div class="results">${Loc.cands.map(c => `<button class="result" type="button" data-iam="${esc(c.line)}|${esc(c.to)}">${badge(c.line, 'sm')}<span class="nm">${esc(tt('Richtung {to}', { to: c.to }))}</span></button>`).join('')}</div></div>` : '');
+  setHTML($('#trkKv'), on ? `<dl class="kv"><dt>${tt('Quelle')}</dt><dd>${tt(Loc.mode === 'demo' ? 'Demo-Fahrt (simuliertes GPS)' : 'Handy-GPS')}</dd><dt>${tt('Status')}</dt><dd>${statusLabel}</dd>
+      <dt>${tt('Tempo')}</dt><dd>${Math.round(Loc.speed)} km/h</dd><dt>${tt('Genauigkeit')}</dt><dd>${Loc.last ? '±' + Math.round(Loc.last.acc) + ' m' : '–'}</dd>
+      <dt>${tt('Letzte Ortung')}</dt><dd>${Loc.last ? ago(Loc.last.t) : '–'}${Loc.estimated ? tt(', Standort nach Fahrplan geschätzt') : ''}</dd>
+      <dt>${tt('Erkennung')}</dt><dd>${tt(m ? ({ vehicle: 'Fahrzeug erkannt', line: 'Linie erkannt', you: 'Von dir gewählt' }[m.method]) : 'Noch keine')}</dd></dl>` : '');
+  setHTML($('#trkBtns'), `${Loc.mode !== 'demo' ? `<button class="btn primary block" type="button" data-loc="demo">${tt('Demo-Fahrt mit der U3 starten')}</button>` : `<button class="btn block" type="button" data-loc="demo">${tt('Demo-Fahrt neu starten')}</button>`}
+      ${ROUTE.trip ? `<button class="btn block" type="button" data-act="endtrip">${tt('Fahrt beenden')}</button>` : ''}`);
 }
 
 // ---------- fast sharing + friends demo
@@ -1115,20 +1116,20 @@ function currentShareContext() {
   const dm = Loc.demo;
   if (dm) {
     const e = Math.max(0, Math.min(dm.pd.T, dm.eAt(Date.now()))), p = posAt(dm.pd, e), next = Math.max(0, Math.min(dm.pd.names.length - 1, p.next));
-    return { line: dm.pd.line, direction: dm.pd.to, next: dm.pd.names[next], eta: Math.max(0, Math.round((dm.pd.arr[next] - e) / 60)), accuracy: Loc.estimated ? 'Geschätzt' : 'Live · ±18 m' };
+    return { line: dm.pd.line, direction: dm.pd.to, next: dm.pd.names[next], eta: Math.max(0, Math.round((dm.pd.arr[next] - e) / 60)), accuracy: tt(Loc.estimated ? 'Geschätzt' : 'Live · ±18 m') };
   }
   const m = Loc.match;
-  if (m && m.pd) return { line: m.line, direction: m.to, next: m.pd.names[m.next], eta: Math.max(0, Math.round(m.eta / 60)), accuracy: Loc.estimated ? 'Geschätzt' : 'Live' };
+  if (m && m.pd) return { line: m.line, direction: m.to, next: m.pd.names[m.next], eta: Math.max(0, Math.round(m.eta / 60)), accuracy: tt(Loc.estimated ? 'Geschätzt' : 'Live') };
   const near = nearestStation(myPosition() || DEMO_POS, 400);
-  return { line: null, direction: 'Zu Fuß', next: near ? near.name : 'Odeonsplatz', eta: 0, accuracy: Loc.mode === 'gps' ? 'Live' : 'Bereit' };
+  return { line: null, direction: tt('Zu Fuß'), next: near ? near.name : 'Odeonsplatz', eta: 0, accuracy: tt(Loc.mode === 'gps' ? 'Live' : 'Bereit') };
 }
 function renderShareButton() {
   const b = $('#btnShare'); if (!b) return;
   const c = currentShareContext(), left = SOCIAL.sharing ? Math.max(1, Math.ceil((SOCIAL.ends - Date.now()) / 60000)) : 0;
   b.classList.toggle('sharing', SOCIAL.sharing);
-  b.setAttribute('aria-label', SOCIAL.sharing ? 'Geteilten Live-Standort verwalten' : 'Live-Standort teilen');
+  b.setAttribute('aria-label', tt(SOCIAL.sharing ? 'Geteilten Live-Standort verwalten' : 'Live-Standort teilen'));
   setHTML(b, `<span class="trip-launch-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 000 8.4M16.2 7.8a6 6 0 010 8.4M4.6 4.6a10.5 10.5 0 000 14.8M19.4 4.6a10.5 10.5 0 010 14.8"/></svg></span>
-    <span class="trip-launch-copy"><small>${SOCIAL.sharing ? `${esc(c.line || 'Live')} · ${left} Min verbleibend` : 'Mit Linie, Richtung & nächstem Halt'}</small><strong>${SOCIAL.sharing ? 'Du teilst deinen Standort' : 'Live-Standort teilen'}</strong></span>
+    <span class="trip-launch-copy"><small>${SOCIAL.sharing ? `${esc(c.line || 'Live')} · ${tt('noch {n} Min', { n: left })}` : tt('Mit Linie, Richtung & nächstem Halt')}</small><strong>${tt(SOCIAL.sharing ? 'Du teilst deinen Standort' : 'Live-Standort teilen')}</strong></span>
     <svg class="trip-launch-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>`);
 }
 function beginSharing() {
@@ -1139,19 +1140,20 @@ function beginSharing() {
   openSheet('share');
 }
 function stopSharing() {
-  SOCIAL.sharing = false; SOCIAL.started = 0; SOCIAL.ends = 0; closeSheet(); renderShareButton(); toast('Teilen beendet.');
+  SOCIAL.sharing = false; SOCIAL.started = 0; SOCIAL.ends = 0; closeSheet(); renderShareButton(); toast(tt('Teilen beendet.'));
 }
 function renderShareSheet() {
   const b = $('#shareBody'); if (!b) return; const c = currentShareContext();
   const left = Math.max(1, Math.ceil((SOCIAL.ends - Date.now()) / 60000));
-  b.innerHTML = `<div class="share-status"><span class="share-pulse" aria-hidden="true"></span><span><strong>Live geteilt</strong><span>Mia und Jonas können dich sehen · noch ${left} Min</span></span></div>
+  const viewers = SOCIAL.friends.filter(f => !f.walking), names = viewers.map(f => f.name);
+  b.innerHTML = `<div class="share-status"><span class="share-pulse" aria-hidden="true"></span><span><strong>${tt('Live geteilt')}</strong><span>${tt('{names} können dich sehen · noch {n} Min', { names: names.slice(0, -1).join(', ') + (names.length > 1 ? tt(' und ') : '') + names.slice(-1), n: left })}</span></span></div>
     <div class="share-context">
-      <div class="share-context-main">${c.line ? badge(c.line, 'lg') : `<span class="friend-avatar" style="--friend-color:#0878ff">Du</span>`}<span><small>Automatisch erkannt</small><strong>${c.line ? `${esc(c.line)} Richtung ${esc(c.direction)}` : esc(c.direction)}</strong></span></div>
-      <div class="share-meta-grid"><div><small>Nächster Halt</small><strong>${esc(c.next)}</strong></div><div><small>Ankunft</small><strong>${c.eta > 0 ? `in ${c.eta} Min` : 'jetzt'}</strong></div><div><small>Signal</small><strong>${esc(c.accuracy)}</strong></div></div>
+      <div class="share-context-main">${c.line ? badge(c.line, 'lg') : `<span class="friend-avatar" style="--friend-color:#0878ff">${tt('Du')}</span>`}<span><small>${tt('Automatisch erkannt')}</small><strong>${c.line ? esc(tt('{line} Richtung {to}', { line: c.line, to: c.direction })) : esc(c.direction)}</strong></span></div>
+      <div class="share-meta-grid"><div><small>${tt('Nächster Halt')}</small><strong>${esc(c.next)}</strong></div><div><small>${tt('Ankunft')}</small><strong>${c.eta > 0 ? tt('in {n} Min', { n: c.eta }) : tt('jetzt')}</strong></div><div><small>${tt('Signal')}</small><strong>${esc(c.accuracy)}</strong></div></div>
     </div>
-    <div class="friends-summary"><span class="viewer-stack"><span class="mini-avatar" style="--friend-color:#6755D9">M</span><span class="mini-avatar" style="--friend-color:#167A5A">J</span></span><span><strong>Sicherheitskreis</strong><small>Nur eingeladene Personen · Link endet automatisch</small></span></div>
-    <div class="btns"><button class="btn primary block" type="button" data-share-copy>Einladungslink kopieren</button><button class="btn block" type="button" data-share-extend>Um 1 Stunde verlängern</button><button class="btn block" type="button" data-share-stop>Teilen beenden</button></div>
-    <p class="note">Mitgeteilt werden Standort, Verkehrsmittel, Linie, Fahrtrichtung, nächster Halt und ob die Position im Tunnel geschätzt ist. Dein genauer Verlauf bleibt auf diesem Handy.</p>`;
+    <div class="friends-summary"><span class="viewer-stack">${viewers.map(f => `<span class="mini-avatar" style="--friend-color:${f.color}">${f.initial}</span>`).join('')}</span><span><strong>${tt('Sicherheitskreis')}</strong><small>${tt('Nur eingeladene Personen · Link endet automatisch')}</small></span></div>
+    <div class="btns"><button class="btn primary block" type="button" data-share-copy>${tt('Einladungslink kopieren')}</button><button class="btn block" type="button" data-share-extend>${tt('Um 1 Stunde verlängern')}</button><button class="btn block" type="button" data-share-stop>${tt('Teilen beenden')}</button></div>
+    <p class="note">${tt('Mitgeteilt werden Standort, Verkehrsmittel, Linie, Fahrtrichtung, nächster Halt und ob die Position im Tunnel geschätzt ist. Dein genauer Verlauf bleibt auf diesem Handy.')}</p>`;
 }
 function friendPath(f) {
   return PD.find(p => p.line === f.line && (!f.to || p.to.includes(f.to))) || PD.find(p => p.line === f.line) || PD[0];
@@ -1159,20 +1161,20 @@ function friendPath(f) {
 function friendSnapshot(f, now = Date.now()) {
   if (f.walking) {
     const s = stationByName(f.station) || ST[Object.keys(ST)[0]], t = (now - SOCIAL.demoStarted) / 1000;
-    return { ...f, lng: s.lng + Math.sin(t / 9) * .00035, lat: s.lat + Math.cos(t / 11) * .00022, line: null, direction: 'Zu Fuß zum Viktualienmarkt', next: 'Marienplatz', eta: 3, accuracy: 'Live · ±9 m', status: 'Zu Fuß' };
+    return { ...f, lng: s.lng + Math.sin(t / 9) * .00035, lat: s.lat + Math.cos(t / 11) * .00022, line: null, direction: tt('Zu Fuß zum Viktualienmarkt'), next: 'Marienplatz', eta: 3, accuracy: tt('Live · ±9 m'), status: tt('Zu Fuß') };
   }
   const pd = friendPath(f), total = pd.cum[pd.cum.length - 1], elapsed = (now - SOCIAL.demoStarted) / 1000;
   const d = (f.phase * total + elapsed * f.speed) % total, p = posAlong(pd, d);
   let next = pd.sd.findIndex(x => x > d + 12); if (next < 0) next = pd.sd.length - 1;
   const eta = Math.max(1, Math.round((pd.sd[next] - d) / Math.max(5, f.speed) / 60));
-  return { ...f, pd, lng: p.lng, lat: p.lat, direction: `Richtung ${pd.to}`, next: pd.names[next], eta, accuracy: 'Live · ±12 m', status: `${f.line} · ${pd.to}` };
+  return { ...f, pd, lng: p.lng, lat: p.lat, direction: tt('Richtung {to}', { to: pd.to }), next: pd.names[next], eta, accuracy: tt('Live · ±12 m'), status: `${f.line} · ${pd.to}` };
 }
 function updateFriendMarkers() {
   if (!map) return;
   for (const f of SOCIAL.friends) {
     const s = friendSnapshot(f); let rec = FRIEND_MARKERS.get(f.id);
     if (!rec) {
-      const el = document.createElement('button'); el.type = 'button'; el.className = `friend-marker${f.walking ? ' walking' : ''}`; el.style.setProperty('--friend-color', f.color); el.textContent = f.initial; el.setAttribute('aria-label', `${f.name} auf der Karte`);
+      const el = document.createElement('button'); el.type = 'button'; el.className = `friend-marker${f.walking ? ' walking' : ''}`; el.style.setProperty('--friend-color', f.color); el.textContent = f.initial; el.setAttribute('aria-label', tt('{name} auf der Karte', { name: f.name }));
       el.addEventListener('click', e => { e.stopPropagation(); SOCIAL.selected = f.id; updateFriendMarkers(); openSheet('friends'); });
       rec = { el, marker: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([s.lng, s.lat]).addTo(map) }; FRIEND_MARKERS.set(f.id, rec);
     } else rec.marker.setLngLat([s.lng, s.lat]);
@@ -1181,12 +1183,13 @@ function updateFriendMarkers() {
 }
 function renderFriends() {
   const b = $('#friendsBody'); if (!b) return; const snaps = SOCIAL.friends.map(f => friendSnapshot(f)), cur = snaps.find(f => f.id === SOCIAL.selected) || snaps[0];
+  $('#frMeta').textContent = tt('{n} teilen live', { n: snaps.length });
   b.innerHTML = `<div class="friend-detail">
-      <div class="friend-detail-head"><span class="friend-avatar" style="--friend-color:${cur.color}">${cur.initial}</span><span><strong>${esc(cur.name)}</strong><span>${cur.line ? `${badge(cur.line, 'xs')} ${esc(cur.direction)}` : esc(cur.direction)}</span><small>${esc(cur.shared)} · ${cur.accuracy}</small></span></div>
-      <div class="friend-detail-grid"><div><small>Nächster Halt</small><strong>${esc(cur.next)}</strong></div><div><small>Dort in</small><strong>${cur.eta} Min</strong></div><div><small>Unterwegs</small><strong>${esc(cur.carriage || 'Zu Fuß')}</strong></div><div><small>Akku</small><strong>${cur.battery}%</strong></div></div>
-      <button class="btn primary block" type="button" data-friend-focus="${cur.id}">Auf Karte zeigen</button>
+      <div class="friend-detail-head"><span class="friend-avatar" style="--friend-color:${cur.color}">${cur.initial}</span><span><strong>${esc(cur.name)}</strong><span>${cur.line ? `${badge(cur.line, 'xs')} ${esc(cur.direction)}` : esc(cur.direction)}</span><small>${esc(tt(cur.shared))} · ${cur.accuracy}</small></span></div>
+      <div class="friend-detail-grid"><div><small>${tt('Nächster Halt')}</small><strong>${esc(cur.next)}</strong></div><div><small>${tt('Dort in')}</small><strong>${tt('{n} Min', { n: cur.eta })}</strong></div><div><small>${tt('Unterwegs')}</small><strong>${esc(tt(cur.carriage || 'Zu Fuß'))}</strong></div><div><small>${tt('Akku')}</small><strong>${cur.battery}%</strong></div></div>
+      <button class="btn primary block" type="button" data-friend-focus="${cur.id}">${tt('Auf Karte zeigen')}</button>
     </div>
-    <div class="friends-list">${snaps.map(f => `<button class="friend-row" type="button" data-friend="${f.id}" aria-current="${f.id === cur.id}"><span class="friend-avatar" style="--friend-color:${f.color}">${f.initial}</span><span class="friend-copy"><strong>${esc(f.name)}</strong><span>${f.line ? `${esc(f.line)} · ${esc(f.direction)}` : esc(f.direction)}</span><small>Nächster Halt: ${esc(f.next)} · ${esc(f.shared)}</small></span><span class="friend-eta"><b>${f.eta} Min</b>${f.battery}%</span></button>`).join('')}</div>`;
+    <div class="friends-list">${snaps.map(f => `<button class="friend-row" type="button" data-friend="${f.id}" aria-current="${f.id === cur.id}"><span class="friend-avatar" style="--friend-color:${f.color}">${f.initial}</span><span class="friend-copy"><strong>${esc(f.name)}</strong><span>${f.line ? `${esc(f.line)} · ${esc(f.direction)}` : esc(f.direction)}</span><small>${tt('Nächster Halt')}: ${esc(f.next)} · ${esc(tt(f.shared))}</small></span><span class="friend-eta"><b>${tt('{n} Min', { n: f.eta })}</b>${f.battery}%</span></button>`).join('')}</div>`;
 }
 function startSocialDemo() {
   SOCIAL.demoStarted = Date.now(); updateFriendMarkers(); renderShareButton();
@@ -1207,26 +1210,26 @@ function lineCard(l) {
   const hw = headwayMin(L), active = [...VEH.values()].filter(v => v.pd.line === l).length;
   const solo = F.view === 'custom' && F.custom.length === 1 && F.custom[0] === l;
   const issues = activeAlerts().filter(a => (a.lines || []).includes(l));
-  openCard(`<div class="head">${badge(l, 'lg')}<div class="titles"><h3 id="cardTitle">${esc(L.termini)}</h3><div class="sub">${MODE_LABEL[L.mode]}${L.night ? ', Nachtlinie' : ''}</div></div>${closeX}</div>
-    <div class="facts"><span><b>${L.stationCount}</b> Haltestellen</span><span>${hw ? `Gerade alle <b>${hw} Min</b>` : 'Fährt gerade nicht'}</span>${F.vehicles && visibleSet().has(l) ? `<span><b>${active}</b> unterwegs</span>` : ''}</div>
-    ${issues.map(a => `<div class="flag mid" style="margin-top:10px">${ICON.warn}<span>${esc(a.title)}</span></div>`).join('')}
-    <div class="btns">${solo ? `<button class="btn primary" type="button" data-act="showbasic">Wieder alle Linien zeigen</button>` : `<button class="btn primary" type="button" data-act="solo" data-line="${esc(l)}">Nur ${esc(l)} zeigen</button>`}
-      <button class="btn" type="button" data-act="fit" data-line="${esc(l)}">Linie zeigen</button></div>`);
+  openCard(`<div class="head">${badge(l, 'lg')}<div class="titles"><h3 id="cardTitle">${esc(L.termini)}</h3><div class="sub">${MODE_LABEL[L.mode]}${L.night ? tt(', Nachtlinie') : ''}</div></div>${closeX}</div>
+    <div class="facts"><span><b>${L.stationCount}</b> ${tt('Haltestellen')}</span><span>${hw ? tt('Gerade alle <b>{n} Min</b>', { n: hw }) : tt('Fährt gerade nicht')}</span>${F.vehicles && visibleSet().has(l) ? `<span><b>${active}</b> ${tt('unterwegs')}</span>` : ''}</div>
+    ${issues.map(a => `<div class="flag mid" style="margin-top:10px">${ICON.warn}<span>${esc(tt(a.title))}</span></div>`).join('')}
+    <div class="btns">${solo ? `<button class="btn primary" type="button" data-act="showbasic">${tt('Wieder alle Linien zeigen')}</button>` : `<button class="btn primary" type="button" data-act="solo" data-line="${esc(l)}">${tt('Nur {line} zeigen', { line: esc(l) })}</button>`}
+      <button class="btn" type="button" data-act="fit" data-line="${esc(l)}">${tt('Linie zeigen')}</button></div>`);
 }
 function stationCard(sid) {
   const s = ST[sid]; if (!s) return; selected = { type: 'station', id: sid }; applyHighlight();
   const render = () => {
     const deps = nextDepartures(sid), pref = P.preferred.includes(sid), avo = P.avoided.includes(sid);
     const z = alertZones().filter(q => metres([s.lng, s.lat], [q.lng, q.lat]) <= q.r);
-    const rows = deps.slice(0, 5).map(r => `<div class="dep">${badge(r.line, 'sm')}<span class="to">${esc(r.to)}</span><span class="mins">${r.times.map(x => mins(x)).map((m, i) => i ? `<small>${m}</small>` : (m === 0 ? 'jetzt' : `${m} Min`)).join(' <small>dann</small> ')}</span></div>`).join('');
+    const rows = deps.slice(0, 5).map(r => `<div class="dep">${badge(r.line, 'sm')}<span class="to">${esc(r.to)}</span><span class="mins">${r.times.map(x => mins(x)).map((m, i) => i ? `<small>${m}</small>` : (m === 0 ? tt('jetzt') : tt('{n} Min', { n: m }))).join(` <small>${tt('dann')}</small> `)}</span></div>`).join('');
     return `<div class="head"><div class="titles"><h3 id="cardTitle">${esc(s.name)}</h3><div class="badges" style="margin-top:8px">${s.lines.map(l => badge(l, 'sm')).join('')}</div></div>${closeX}</div>
-      ${z.map(q => `<div class="flag ${q.sev === 3 ? 'bad' : 'mid'}" style="margin-top:10px">${ICON.warn}<span>${esc(q.title)}</span></div>`).join('')}
-      ${avo ? `<div class="flag bad" style="margin-top:10px">${ICON.warn}<span>Du meidest diese Haltestelle. Sichere Routen fahren drumherum.</span></div>` : ''}
-      ${deps.length ? `<div class="deps">${rows}</div>` : `<p class="note" style="margin-top:12px">Gerade keine Abfahrten.</p>`}
-      <div class="btns"><button class="btn primary" type="button" data-act="routeto" data-sid="${esc(sid)}">Route hierher</button>
-        <button class="btn" type="button" data-act="pref" data-sid="${esc(sid)}" aria-pressed="${pref}">${pref ? 'Bevorzugt' : 'Bevorzugen'}</button>
-        <button class="btn" type="button" data-act="avoid" data-sid="${esc(sid)}" aria-pressed="${avo}">${avo ? 'Gemieden' : 'Meiden'}</button></div>
-      ${deps.length ? '<span class="sim">Abfahrten nach Fahrplan simuliert</span>' : ''}`;
+      ${z.map(q => `<div class="flag ${q.sev === 3 ? 'bad' : 'mid'}" style="margin-top:10px">${ICON.warn}<span>${esc(tt(q.title))}</span></div>`).join('')}
+      ${avo ? `<div class="flag bad" style="margin-top:10px">${ICON.warn}<span>${tt('Du meidest diese Haltestelle. Sichere Routen fahren drumherum.')}</span></div>` : ''}
+      ${deps.length ? `<div class="deps">${rows}</div>` : `<p class="note" style="margin-top:12px">${tt('Gerade keine Abfahrten.')}</p>`}
+      <div class="btns"><button class="btn primary" type="button" data-act="routeto" data-sid="${esc(sid)}">${tt('Route hierher')}</button>
+        <button class="btn" type="button" data-act="pref" data-sid="${esc(sid)}" aria-pressed="${pref}">${tt(pref ? 'Bevorzugt' : 'Bevorzugen')}</button>
+        <button class="btn" type="button" data-act="avoid" data-sid="${esc(sid)}" aria-pressed="${avo}">${tt(avo ? 'Gemieden' : 'Meiden')}</button></div>
+      ${deps.length ? `<span class="sim">${tt('Abfahrten nach Fahrplan simuliert')}</span>` : ''}`;
   };
   openCard(render());
   cardRefresh = () => { if (selected && selected.type === 'station' && selected.id === sid) { const c = $('#card'), st = c.scrollTop; c.innerHTML = render(); c.scrollTop = st; } };
@@ -1235,104 +1238,104 @@ function vehicleCard(vid) {
   if (!VEH.get(vid)) return; selected = { type: 'vehicle', id: vid }; applyHighlight();
   const render = () => {
     const cur = VEH.get(vid);
-    if (!cur) return `<div class="head"><div class="titles"><h3 id="cardTitle">Diese Fahrt ist zu Ende</h3></div>${closeX}</div>`;
+    if (!cur) return `<div class="head"><div class="titles"><h3 id="cardTitle">${tt('Diese Fahrt ist zu Ende')}</h3></div>${closeX}</div>`;
     const pd = cur.pd, k = cur.p.next, secs = Math.max(0, pd.arr[k] - cur.e);
-    const where = cur.p.atStop ? `Hält an <b>${esc(pd.names[k])}</b>` : `Nächster Halt: <b>${esc(pd.names[k])}</b>, ${secs < 50 ? 'in unter einer Minute' : `in ${mins(secs)} Min`}`;
-    return `<div class="head">${badge(pd.line, 'lg')}<div class="titles"><h3 id="cardTitle">Richtung ${esc(pd.to)}</h3><div class="sub">${where}</div></div>${closeX}</div><span class="sim">${cur.demo ? 'Deine Demo-Fahrt' : 'Simulierte Position'}</span>`;
+    const where = cur.p.atStop ? tt('Hält an <b>{name}</b>', { name: esc(pd.names[k]) }) : `${tt('Nächster Halt')}: <b>${esc(pd.names[k])}</b>, ${secs < 50 ? tt('in unter einer Minute') : tt('in {n} Min', { n: mins(secs) })}`;
+    return `<div class="head">${badge(pd.line, 'lg')}<div class="titles"><h3 id="cardTitle">${esc(tt('Richtung {to}', { to: pd.to }))}</h3><div class="sub">${where}</div></div>${closeX}</div><span class="sim">${tt(cur.demo ? 'Deine Demo-Fahrt' : 'Simulierte Position')}</span>`;
   };
   openCard(render());
   cardRefresh = () => { if (selected && selected.type === 'vehicle' && selected.id === vid) $('#card').innerHTML = render(); };
 }
 function alertCard(id) {
   const a = ALERTS.find(x => x.id === id); if (!a) return; selected = { type: 'alert', id };
-  openCard(`<div class="head"><div class="titles"><div class="sub" style="margin:0 0 4px">${KIND[a.kind].label}</div><h3 id="cardTitle">${esc(a.title)}</h3></div>${closeX}</div>
-    ${a.body ? `<p class="note" style="margin-top:8px;color:var(--ink)">${esc(a.body)}</p>` : ''}
+  openCard(`<div class="head"><div class="titles"><div class="sub" style="margin:0 0 4px">${tt(KIND[a.kind].label)}</div><h3 id="cardTitle">${esc(tt(a.title))}</h3></div>${closeX}</div>
+    ${a.body ? `<p class="note" style="margin-top:8px;color:var(--ink)">${esc(tt(a.body))}</p>` : ''}
     <div class="facts">${(a.lines || []).filter(l => LINE[l]).map(l => badge(l, 'sm')).join('')}<span>${whenText(a)}</span></div>
-    <div class="facts" style="margin-top:8px"><span class="tag ${a.demo ? 'demo' : ''}">${a.demo ? 'Demo-Daten' : esc(a.source)}</span>${a.mine ? '<span class="tag mine">Deine Meldung</span>' : ''}</div>`);
+    <div class="facts" style="margin-top:8px"><span class="tag ${a.demo ? 'demo' : ''}">${a.demo ? tt('Demo-Daten') : esc(tt(a.source))}</span>${a.mine ? `<span class="tag mine">${tt('Deine Meldung')}</span>` : ''}</div>`);
 }
 function whenText(a) {
   const now = Date.now();
-  if (a.kind === 'report') return `Gemeldet ${ago(a.from)}`;
-  if (a.from > now) return `Ab ${clock(a.from)}`;
-  if (a.to - now > 36 * 3600e3) return `Seit ${new Date(a.from).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', timeZone: TZ })}`;
-  return `Bis ${clock(a.to)}`;
+  if (a.kind === 'report') return tt('Gemeldet {when}', { when: ago(a.from) });
+  if (a.from > now) return tt('Ab {t}', { t: clock(a.from) });
+  if (a.to - now > 36 * 3600e3) return tt('Seit {d}', { d: new Date(a.from).toLocaleDateString(LOC, { day: 'numeric', month: 'short', timeZone: TZ }) });
+  return tt('Bis {t}', { t: clock(a.to) });
 }
 
 // ---------- alerts sheet
 let alertFilter = 'all';
 function renderAlerts() {
   const b = $('#alertsBody'); if (!b) return;
-  $('#aMeta').textContent = alertsUpdated ? `Aktualisiert ${clock(alertsUpdated)}` : '';
+  $('#aMeta').textContent = alertsUpdated ? tt('Aktualisiert {t}', { t: clock(alertsUpdated) }) : '';
   const now = Date.now();
   const list = ALERTS.filter(a => a.to > now && a.from < now + 18 * 3600e3).sort((x, y) => (activeNow(y) - activeNow(x)) || (y.sev - x.sev) || (y.from - x.from));
-  const groups = [['all', 'Alle'], ['report', 'Meldungen'], ['disruption', 'Verkehr'], ['construction', 'Baustellen'], ['news', 'News']];
+  const groups = [['all', tt('Alle')], ['report', tt('Meldungen')], ['disruption', tt('Verkehr')], ['construction', tt('Baustellen')], ['news', tt('News')]];
   const count = k => k === 'all' ? list.length : list.filter(a => a.kind === k).length;
   const shown = alertFilter === 'all' ? list : list.filter(a => a.kind === alertFilter);
   const homeLines = P.home && ST[P.home] ? new Set(ST[P.home].lines) : null;
   const w = WEATHER, night = w && (now > w.sunset || mzHour() < 6);
-  const wxLine = w ? (w.raining ? `Regen${w.rainUntil ? ` bis etwa ${clock(w.rainUntil)}` : ''}. Bahnhöfe und Unterführungen werden voller, darum halten sichere Routen Fußwege kurz.` : (night ? `Dunkel seit ${clock(w.sunset)}. Sichere Routen bevorzugen gut besuchte Haltestellen.` : `Dunkel ab ${clock(w.sunset)}.`)) : '';
+  const wxLine = w ? (w.raining ? (w.rainUntil ? tt('Regen bis etwa {t}.', { t: clock(w.rainUntil) }) : tt('Regen.')) + ' ' + tt('Bahnhöfe und Unterführungen werden voller, darum halten sichere Routen Fußwege kurz.') : (night ? tt('Dunkel seit {t}. Sichere Routen bevorzugen gut besuchte Haltestellen.', { t: clock(w.sunset) }) : tt('Dunkel ab {t}.', { t: clock(w.sunset) }))) : '';
   const anyDemo = list.some(a => a.demo) || (w && !w.live && !w.unknown);
   b.innerHTML = `
-    ${w && !w.unknown ? `<div class="wx"><div class="big">${wxIcon(w.kind, night)}${w.temp}°</div><div class="t1">${esc(w.text)}, Wind ${w.wind} km/h</div><div class="t2">${esc(wxLine)}${w.live ? '' : ' <span class="tag demo">Demo-Daten</span>'}</div></div>` : ''}
-    <div class="chiprow scroll" role="group" aria-label="Hinweise filtern">${groups.map(([k, l]) => `<button class="chip plain" type="button" data-afilter="${k}" aria-pressed="${alertFilter === k}">${l} <span style="opacity:.7">${count(k)}</span></button>`).join('')}</div>
+    ${w && !w.unknown ? `<div class="wx"><div class="big">${wxIcon(w.kind, night)}${w.temp}°</div><div class="t1">${esc(tt(w.text))}, ${tt('Wind')} ${w.wind} km/h</div><div class="t2">${esc(wxLine)}${w.live ? '' : ` <span class="tag demo">${tt('Demo-Daten')}</span>`}</div></div>` : ''}
+    <div class="chiprow scroll" role="group" aria-label="${tt('Hinweise filtern')}">${groups.map(([k, l]) => `<button class="chip plain" type="button" data-afilter="${k}" aria-pressed="${alertFilter === k}">${l} <span style="opacity:.7">${count(k)}</span></button>`).join('')}</div>
     <div class="alist">${shown.length ? shown.map(a => {
       const mine = homeLines && ((a.lines || []).some(l => homeLines.has(l)) || (a.stations || []).some(n => { const s = stationByName(n); return s && s.lines.some(l => homeLines.has(l)); }));
       return `<button class="al" type="button" data-alert="${esc(a.id)}" style="--sevc:${SEV_COLOR[a.sev]}">
-        <div class="top1">${ICON[a.kind].replace('<svg', '<svg class="i"')}${KIND[a.kind].label}<span class="when">${whenText(a)}</span></div>
-        <div class="tt">${esc(a.title)}</div>${a.body ? `<div class="bd">${esc(a.body)}</div>` : ''}
-        <div class="ft">${(a.lines || []).filter(l => LINE[l]).slice(0, 7).map(l => badge(l, 'xs')).join('')}${!activeNow(a) ? '<span class="tag later">Später heute</span>' : ''}${mine ? '<span class="tag mine">Auf deinem Heimweg</span>' : ''}
-          <span class="src">${a.demo ? '<span class="tag demo">Demo-Daten</span>' : esc(a.source)}</span></div></button>`; }).join('') : `<p class="note">Gerade nichts zu melden.</p>`}</div>
-    ${anyDemo ? `<div class="banner">${ICON.info}<span>Einträge mit „Demo-Daten“ sind Beispiele. Live-MVG-Meldungen, News und Wetter laden, wenn SafeRide unter seiner eigenen Adresse läuft. Den Status findest du im Profil unter Datenquellen.</span></div>` : ''}`;
+        <div class="top1">${ICON[a.kind].replace('<svg', '<svg class="i"')}${tt(KIND[a.kind].label)}<span class="when">${whenText(a)}</span></div>
+        <div class="tt">${esc(tt(a.title))}</div>${a.body ? `<div class="bd">${esc(tt(a.body))}</div>` : ''}
+        <div class="ft">${(a.lines || []).filter(l => LINE[l]).slice(0, 7).map(l => badge(l, 'xs')).join('')}${!activeNow(a) ? `<span class="tag later">${tt('Später heute')}</span>` : ''}${mine ? `<span class="tag mine">${tt('Auf deinem Heimweg')}</span>` : ''}
+          <span class="src">${a.demo ? `<span class="tag demo">${tt('Demo-Daten')}</span>` : esc(tt(a.source))}</span></div></button>`; }).join('') : `<p class="note">${tt('Gerade nichts zu melden.')}</p>`}</div>
+    ${anyDemo ? `<div class="banner">${ICON.info}<span>${tt('Einträge mit „Demo-Daten“ sind Beispiele. Live-MVG-Meldungen, News und Wetter laden, wenn SafeRide unter seiner eigenen Adresse läuft.')}</span></div>` : ''}`;
 }
 
 // ---------- route sheet + card
 function onboardOrigin() { const m = Loc.match; if (Loc.status !== 'vehicle' || !m || !m.pd) return null; return { onboard: { pi: m.pd.i, k: Math.max(1, m.next), eta: Math.max(20, m.eta || 0), line: m.line } }; }
-function originLabel() { if (ROUTE.from && ROUTE.from.sid) return stName(ROUTE.from.sid); const ob = onboardOrigin(); if (ob) return `Mein Standort (in der ${Loc.match.line} Richtung ${Loc.match.to})`; const p = myPosition(); return p ? (inArea(p) ? 'Mein Standort' : 'Odeonsplatz · Demo-Start') : 'Odeonsplatz · Demo-Start'; }
+function originLabel() { if (ROUTE.from && ROUTE.from.sid) return stName(ROUTE.from.sid); const ob = onboardOrigin(); if (ob) return tt('Mein Standort (in der {line} Richtung {to})', { line: Loc.match.line, to: Loc.match.to }); const p = myPosition(); return p && inArea(p) ? tt('Mein Standort') : tt('Odeonsplatz · Demo-Start'); }
 function originObj() { if (ROUTE.from && ROUTE.from.sid) return ROUTE.from; const ob = onboardOrigin(); if (ob) return ob; let p = myPosition(); if (!inArea(p)) p = DEMO_POS; return { lng: p[0], lat: p[1] }; }
 function renderRouteSheet() {
   const b = $('#routeBody'); const mode = ROUTE.mode || P.routeDefault;
   const quick = [];
-  if (P.home && ST[P.home]) quick.push(`<button class="chip" type="button" data-rquick="${esc(P.home)}">${ICON.pin.replace('<svg', '<svg width="18" height="18"')}Zuhause</button>`);
+  if (P.home && ST[P.home]) quick.push(`<button class="chip" type="button" data-rquick="${esc(P.home)}">${ICON.pin.replace('<svg', '<svg width="18" height="18"')}${tt('Zuhause')}</button>`);
   for (const sid of P.preferred.slice(0, 4)) if (ST[sid] && sid !== P.home) quick.push(`<button class="chip" type="button" data-rquick="${esc(sid)}">${esc(ST[sid].name)}</button>`);
   let res = '';
   if (ROUTE.to) {
     const R = ROUTE.results;
-    if (!R) res = `<p class="note">Gerade keine Verbindung gefunden. Manche Linien fahren nachts nicht.</p>`;
+    if (!R) res = `<p class="note">${tt('Gerade keine Verbindung gefunden. Manche Linien fahren nachts nicht.')}</p>`;
     else {
-      const opts = R.same ? [['safe', R.safe, 'Am sichersten und schnellsten']] : (mode === 'safe' ? [['safe', R.safe, 'Am sichersten'], ['fast', R.fast, 'Am schnellsten']] : [['fast', R.fast, 'Am schnellsten'], ['safe', R.safe, 'Am sichersten']]);
+      const opts = R.same ? [['safe', R.safe, tt('Am sichersten und schnellsten')]] : (mode === 'safe' ? [['safe', R.safe, tt('Am sichersten')], ['fast', R.fast, tt('Am schnellsten')]] : [['fast', R.fast, tt('Am schnellsten')], ['safe', R.safe, tt('Am sichersten')]]);
       res = `<div class="group">${opts.filter(o => o[1]).map(([k, r, label]) => optionCard(k, r, label, R)).join('')}</div>`;
     }
   }
   b.innerHTML = `
     <div class="fieldstack">
-      <button class="field" type="button" data-rfield="from">${ICON.dot}<span><span class="lbl">Von</span><span class="val">${esc(originLabel())}</span></span></button>
-      <button class="field" type="button" data-rfield="to">${ICON.pin}<span><span class="lbl">Nach</span><span class="val ${ROUTE.to ? '' : 'empty'}">${ROUTE.to ? esc(stName(ROUTE.to)) : 'Haltestelle wählen'}</span></span></button>
-      ${ROUTE.to ? `<button class="swap" type="button" data-rswap aria-label="Start und Ziel tauschen">${ICON.swap}</button>` : ''}
+      <button class="field" type="button" data-rfield="from">${ICON.dot}<span><span class="lbl">${tt('Von')}</span><span class="val">${esc(originLabel())}</span></span></button>
+      <button class="field" type="button" data-rfield="to">${ICON.pin}<span><span class="lbl">${tt('Nach')}</span><span class="val ${ROUTE.to ? '' : 'empty'}">${ROUTE.to ? esc(stName(ROUTE.to)) : tt('Haltestelle wählen')}</span></span></button>
+      ${ROUTE.to ? `<button class="swap" type="button" data-rswap aria-label="${tt('Start und Ziel tauschen')}">${ICON.swap}</button>` : ''}
     </div>
     ${quick.length ? `<div class="chiprow">${quick.join('')}</div>` : ''}
-    ${ROUTE.to ? `<div class="seg wide" role="group" aria-label="Routenwahl"><button type="button" data-rmode="safe" aria-pressed="${mode === 'safe'}">Sicherer</button><button type="button" data-rmode="fast" aria-pressed="${mode === 'fast'}">Schneller</button></div>` : `<p class="route-intro">Wähle ein Ziel. SafeRide vergleicht schnelle Verbindungen mit ruhigeren Wegen und aktuellen Hinweisen.</p>`}
+    ${ROUTE.to ? `<div class="seg wide" role="group" aria-label="${tt('Routenwahl')}"><button type="button" data-rmode="safe" aria-pressed="${mode === 'safe'}">${tt('Sicherer')}</button><button type="button" data-rmode="fast" aria-pressed="${mode === 'fast'}">${tt('Schneller')}</button></div>` : `<p class="route-intro">${tt('Wähle ein Ziel. SafeRide vergleicht schnelle Verbindungen mit ruhigeren Wegen und aktuellen Hinweisen.')}</p>`}
     ${res}`;
 }
-function legSummary(r) { return r.legs.map(l => l.type === 'walk' ? `<span class="walkbadge" title="Zu Fuß">${ICON.walk}</span>` : badge(l.line, 'sm')).join('<span class="ar">›</span>'); }
+function legSummary(r) { return r.legs.map(l => l.type === 'walk' ? `<span class="walkbadge" title="${tt('Zu Fuß')}">${ICON.walk}</span>` : badge(l.line, 'sm')).join('<span class="ar">›</span>'); }
 function optionCard(k, r, label, R) {
   const z = routeZones(r), other = k === 'safe' ? R.fast : R.safe;
   const flags = [];
   if (k === 'safe' && !R.same && other) {
     const oz = routeZones(other);
-    const avoidedNames = oz.zones.filter(q => !z.zones.some(x => x.id === q.id)).map(q => q.title);
-    if (avoidedNames.length) flags.push(`<div class="flag good">${ICON.shield}<span>Meidet ${esc(avoidedNames.slice(0, 2).join(' und '))}${avoidedNames.length > 2 ? ` und ${avoidedNames.length - 2} weitere` : ''}</span></div>`);
+    const avoidedNames = oz.zones.filter(q => !z.zones.some(x => x.id === q.id)).map(q => tt(q.title));
+    if (avoidedNames.length) flags.push(`<div class="flag good">${ICON.shield}<span>${tt('Meidet {what}', { what: esc(avoidedNames.slice(0, 2).join(tt(' und '))) })}${avoidedNames.length > 2 ? tt(' und {n} weitere', { n: avoidedNames.length - 2 }) : ''}</span></div>`);
     const extra = Math.round((r.dur - other.dur) / 60);
-    if (extra > 0) flags.push(`<div class="flag ${extra > P.maxExtra ? 'bad' : 'mid'}">${ICON.info}<span>${extra} Min länger als die schnellste${extra > P.maxExtra ? `, mehr als dein Limit von ${P.maxExtra} Min` : ''}</span></div>`);
+    if (extra > 0) flags.push(`<div class="flag ${extra > P.maxExtra ? 'bad' : 'mid'}">${ICON.info}<span>${tt('{n} Min länger als die schnellste', { n: extra })}${extra > P.maxExtra ? tt(', mehr als dein Limit von {n} Min', { n: P.maxExtra }) : ''}</span></div>`);
   }
-  if (z.zones.length) flags.push(`<div class="flag ${z.zones.some(q => q.sev === 3) ? 'bad' : 'mid'}">${ICON.warn}<span>Führt vorbei an ${esc(z.zones.slice(0, 2).map(q => q.title).join(' und '))}</span></div>`);
-  if (z.avoided.length) flags.push(`<div class="flag bad">${ICON.warn}<span>Nutzt ${esc(z.avoided.map(stName).join(', '))}, die du meidest</span></div>`);
-  if (!z.zones.length && !z.avoided.length && k === 'safe') flags.push(`<div class="flag good">${ICON.shield}<span>Keine Meldungen oder Problemzonen auf dem Weg</span></div>`);
+  if (z.zones.length) flags.push(`<div class="flag ${z.zones.some(q => q.sev === 3) ? 'bad' : 'mid'}">${ICON.warn}<span>${tt('Führt vorbei an {what}', { what: esc(z.zones.slice(0, 2).map(q => tt(q.title)).join(tt(' und '))) })}</span></div>`);
+  if (z.avoided.length) flags.push(`<div class="flag bad">${ICON.warn}<span>${tt('Nutzt {what}, die du meidest', { what: esc(z.avoided.map(stName).join(', ')) })}</span></div>`);
+  if (!z.zones.length && !z.avoided.length && k === 'safe') flags.push(`<div class="flag good">${ICON.shield}<span>${tt('Keine Meldungen oder Problemzonen auf dem Weg')}</span></div>`);
   for (const d of z.disr.slice(0, 1)) flags.push(`<div class="flag mid">${ICON.info}<span>${esc(d.title)}</span></div>`);
   const sel = ROUTE.chosen === k;
   return `<button class="opt" type="button" data-ropt="${k}" aria-pressed="${sel}">
-    <div class="h"><b>${mins(r.dur)} Min</b><span class="k">${label}</span><span class="arr">Ankunft ${clock(Date.now() + r.dur * 1000)}</span></div>
+    <div class="h"><b>${tt('{n} Min', { n: mins(r.dur) })}</b><span class="k">${label}</span><span class="arr">${tt('Ankunft {t}', { t: clock(Date.now() + r.dur * 1000) })}</span></div>
     <div class="legs">${legSummary(r)}</div>
-    <div class="note">${r.transfers === 0 ? 'Ohne Umstieg' : r.transfers === 1 ? '1 Umstieg' : `${r.transfers} Umstiege`}${r.walkM > 50 ? `, ${Math.round(r.walkM / 10) * 10} m zu Fuß` : ''}</div>
+    <div class="note">${r.transfers === 0 ? tt('Ohne Umstieg') : r.transfers === 1 ? tt('1 Umstieg') : tt('{n} Umstiege', { n: r.transfers })}${r.walkM > 50 ? tt(', {n} m zu Fuß', { n: Math.round(r.walkM / 10) * 10 }) : ''}</div>
     ${flags.join('')}</button>`;
 }
 function computeRoutes() { ROUTE.results = ROUTE.to ? planRoutes(originObj(), ROUTE.to) : null; ROUTE.chosen = null; }
@@ -1340,18 +1343,18 @@ function routeCard(k) {
   const R = ROUTE.results; if (!R) return; const r = k === 'fast' ? R.fast : R.safe; if (!r) return;
   ROUTE.chosen = k; selected = { type: 'route' }; drawRoute(r);
   const steps = tripSteps(r, ROUTE.to).map(st => { const v = stepView(st, null, true); return `<div class="step">${v.icon}<span>${v.ins}${v.sub ? `<br><span class="sx">${v.sub}</span>` : ''}</span><span class="tm">${v.time || ''}</span></div>`; }).join('');
-  openCard(`<div class="head"><div class="titles"><h3 id="cardTitle">${k === 'safe' && !R.same ? 'Sicherste Route' : R.same ? 'Am sichersten und schnellsten' : 'Schnellste Route'}, ${mins(r.dur)} Min</h3><div class="sub">Ankunft ${clock(Date.now() + r.dur * 1000)}</div></div>${closeX}</div>
+  openCard(`<div class="head"><div class="titles"><h3 id="cardTitle">${tt(k === 'safe' && !R.same ? 'Sicherste Route' : R.same ? 'Am sichersten und schnellsten' : 'Schnellste Route')}, ${tt('{n} Min', { n: mins(r.dur) })}</h3><div class="sub">${tt('Ankunft {t}', { t: clock(Date.now() + r.dur * 1000) })}</div></div>${closeX}</div>
     <div class="steps">${steps}</div>
-    <div class="btns stick"><button class="btn primary" type="button" data-act="trip" data-k="${k}">Fahrt starten</button><button class="btn" type="button" data-act="routeopts">Andere Optionen</button></div>
-    <span class="sim">Zeiten nach Fahrplan simuliert</span>`);
+    <div class="btns stick"><button class="btn primary" type="button" data-act="trip" data-k="${k}">${tt('Fahrt starten')}</button><button class="btn" type="button" data-act="routeopts">${tt('Andere Optionen')}</button></div>
+    <span class="sim">${tt('Zeiten nach Fahrplan simuliert')}</span>`);
 }
 
 // =================================================================== trip guidance
-const COMPASS = ['nach Norden', 'nach Nordosten', 'nach Osten', 'nach Südosten', 'nach Süden', 'nach Südwesten', 'nach Westen', 'nach Nordwesten'];
-const compass = (a, b) => COMPASS[Math.round(bearing(a, b) / 45) % 8];
+const COMPASS = [N('nach Norden'), N('nach Nordosten'), N('nach Osten'), N('nach Südosten'), N('nach Süden'), N('nach Südwesten'), N('nach Westen'), N('nach Nordwesten')];
+const compass = (a, b) => tt(COMPASS[Math.round(bearing(a, b) / 45) % 8]);
 const stLL = sid => [ST[sid].lng, ST[sid].lat];
 const absClock = sec => clock(Date.now() + (sec - secOfDay()) * 1000);
-const inMin = sec => { const m = Math.round((sec - secOfDay()) / 60); return m <= 0 ? 'jetzt' : `in ${m} Min`; };
+const inMin = sec => { const m = Math.round((sec - secOfDay()) / 60); return m <= 0 ? tt('jetzt') : tt('in {n} Min', { n: m }); };
 const WALKIC = `<span class="walkic">${ICON.walk.replace('width="18" height="18"', '')}</span>`;
 function tripSteps(r, dest) {
   const steps = [];
@@ -1369,28 +1372,28 @@ function stepView(st, live, preview) {
   if (st.kind === 'walk') {
     const wv = st.from ? WALK.get(walkKey(legPt(st.from), stLL(st.toSid))) : null, viaStreets = !!(wv && wv.coords);
     const m = p ? metres(p, stLL(st.toSid)) : viaStreets ? wv.m : st.m, dir = p && m > 25 ? ` ${compass(p, stLL(st.toSid))}` : '';
-    return { icon: WALKIC, ins: `Zu Fuß nach ${esc(stName(st.toSid))}`, sub: `${Math.max(10, Math.round(m / 10) * 10)} m${dir}, etwa ${Math.max(1, Math.round(m / 1.25 / 60))} Min${viaStreets && !preview ? ', folge der gepunkteten Linie' : ''}`, short: `zu Fuß nach <b>${esc(stName(st.toSid))}</b>`, time: absClock(st.start) };
+    return { icon: WALKIC, ins: tt('Zu Fuß nach {name}', { name: esc(stName(st.toSid)) }), sub: `${Math.max(10, Math.round(m / 10) * 10)} m${dir}, ${tt('etwa {n} Min', { n: Math.max(1, Math.round(m / 1.25 / 60)) })}${viaStreets && !preview ? tt(', folge der gepunkteten Linie') : ''}`, short: tt('zu Fuß nach <b>{name}</b>', { name: esc(stName(st.toSid)) }), time: absClock(st.start) };
   }
   if (st.kind === 'board') {
     const dep = st.depNext || st.dep, near = p && metres(p, stLL(st.atSid)) < 160;
-    return { icon: badge(st.line, 'lg'), ins: `Nimm die ${esc(st.line)} Richtung ${esc(st.dir)}`,
-      sub: preview ? `Ab ${esc(stName(st.atSid))}` : `${near ? 'Du bist an ' : 'Ab '}${esc(stName(st.atSid))}, Abfahrt <b>${absClock(dep)}</b> ${inMin(dep)}${st.depNext ? ' (die nächste)' : ''}`,
-      short: `${badge(st.line, 'xs')} Richtung ${esc(st.dir)} um <b>${absClock(dep)}</b>`, time: absClock(dep) };
+    return { icon: badge(st.line, 'lg'), ins: tt('Nimm die {line} Richtung {to}', { line: esc(st.line), to: esc(st.dir) }),
+      sub: preview ? tt('Ab {name}', { name: esc(stName(st.atSid)) }) : `${tt(near ? 'Du bist an {name}' : 'Ab {name}', { name: esc(stName(st.atSid)) })}, ${tt('Abfahrt <b>{t}</b>', { t: absClock(dep) })} ${inMin(dep)}${st.depNext ? tt(' (die nächste)') : ''}`,
+      short: `${badge(st.line, 'xs')} ${tt('Richtung {to} um <b>{t}</b>', { to: esc(st.dir), t: absClock(dep) })}`, time: absClock(dep) };
   }
   if (st.kind === 'ride' || st.kind === 'exit') {
     const to = esc(stName(st.toSid));
-    if (st.kind === 'exit') return { icon: badge(st.line, 'lg'), ins: `Steig aus an ${to}`, sub: `Nächster Halt${live && live.eta > 40 ? `, in etwa ${mins(live.eta)} Min` : ''}`, short: `aussteigen an <b>${to}</b>`, act: true, time: absClock(st.end) };
-    if (preview) return { icon: badge(st.line, 'lg'), ins: `${st.onboard ? 'Bleib sitzen bis' : 'Steig aus an'} ${to}`, sub: `${st.stops} ${st.stops === 1 ? 'Halt' : 'Halte'}`, short: '', time: absClock(st.end) };
+    if (st.kind === 'exit') return { icon: badge(st.line, 'lg'), ins: tt('Steig aus an {name}', { name: to }), sub: `${tt('Nächster Halt')}${live && live.eta > 40 ? tt(', in etwa {n} Min', { n: mins(live.eta) }) : ''}`, short: tt('aussteigen an <b>{name}</b>', { name: to }), act: true, time: absClock(st.end) };
+    if (preview) return { icon: badge(st.line, 'lg'), ins: tt(st.onboard ? 'Bleib sitzen bis {name}' : 'Steig aus an {name}', { name: to }), sub: tt(st.stops === 1 ? '{n} Halt' : '{n} Halte', { n: st.stops }), short: '', time: absClock(st.end) };
     let left = st.stops, nextName = null, atStop = false, eta = null;
     if (live && live.pd) {
       const iTo = live.pd.ids.indexOf(st.toSid);
       if (iTo >= 0) { atStop = !!live.atStop; left = Math.max(0, iTo - live.next + (atStop ? 0 : 1)); nextName = live.pd.names[live.next]; eta = live.eta; }
     }
-    if (left <= 0) return { icon: badge(st.line, 'lg'), ins: `Jetzt aussteigen an ${to}`, sub: 'Die Türen sind an deinem Halt offen', short: `aussteigen an <b>${to}</b>`, act: true, time: absClock(st.end) };
-    if (left === 1) return { icon: badge(st.line, 'lg'), ins: `Steig aus an ${to}`, sub: `Nächster Halt${eta != null && eta > 40 ? `, in etwa ${mins(eta)} Min` : ''}`, short: `aussteigen an <b>${to}</b>`, act: true, time: absClock(st.end) };
-    return { icon: badge(st.line, 'lg'), ins: `${st.onboard ? 'Bleib sitzen bis' : 'Fahr bis'} ${to}`, sub: `Noch <b>${left}</b> Halte${nextName ? `, nächster: ${esc(nextName)}` : ''}${live && live.est ? ' (nach Fahrplan)' : ''}`, short: `aussteigen an <b>${to}</b>`, time: absClock(st.end) };
+    if (left <= 0) return { icon: badge(st.line, 'lg'), ins: tt('Jetzt aussteigen an {name}', { name: to }), sub: tt('Die Türen sind an deinem Halt offen'), short: tt('aussteigen an <b>{name}</b>', { name: to }), act: true, time: absClock(st.end) };
+    if (left === 1) return { icon: badge(st.line, 'lg'), ins: tt('Steig aus an {name}', { name: to }), sub: `${tt('Nächster Halt')}${eta != null && eta > 40 ? tt(', in etwa {n} Min', { n: mins(eta) }) : ''}`, short: tt('aussteigen an <b>{name}</b>', { name: to }), act: true, time: absClock(st.end) };
+    return { icon: badge(st.line, 'lg'), ins: tt(st.onboard ? 'Bleib sitzen bis {name}' : 'Fahr bis {name}', { name: to }), sub: `${tt('Noch <b>{n}</b> Halte', { n: left })}${nextName ? tt(', nächster: {name}', { name: esc(nextName) }) : ''}${live && live.est ? tt(' (nach Fahrplan)') : ''}`, short: tt('aussteigen an <b>{name}</b>', { name: to }), time: absClock(st.end) };
   }
-  return { icon: `<span class="walkic">${ICON.pin.replace('<svg', '<svg width="24" height="24"')}</span>`, ins: `Du bist in ${esc(stName(st.toSid))} angekommen`, sub: 'Wenn du beendest, zeigt die Karte wieder alle Linien.', short: `Ankunft in <b>${esc(stName(st.toSid))}</b>`, time: absClock(st.start) };
+  return { icon: `<span class="walkic">${ICON.pin.replace('<svg', '<svg width="24" height="24"')}</span>`, ins: tt('Du bist in {name} angekommen', { name: esc(stName(st.toSid)) }), sub: tt('Wenn du beendest, zeigt die Karte wieder alle Linien.'), short: tt('Ankunft in <b>{name}</b>', { name: esc(stName(st.toSid)) }), time: absClock(st.start) };
 }
 function startTrip(r, dest, kind) {
   const lines = [...new Set(r.legs.filter(l => l.type === 'ride').map(l => l.line))];
@@ -1404,7 +1407,7 @@ function startTrip(r, dest, kind) {
     const f0 = r.legs[w0.leg].from, a = myPosition() || (typeof f0 === 'string' ? stLL(f0) : f0 && f0.lng != null ? [f0.lng, f0.lat] : null), b = stLL(w0.toSid);
     if (a) setTimeout(() => map.fitBounds([[Math.min(a[0], b[0]), Math.min(a[1], b[1])], [Math.max(a[0], b[0]), Math.max(a[1], b[1])]], { padding: { top: 160, bottom: 300, left: 60, right: 60 }, maxZoom: 16.5, duration: reduced() ? 0 : 900 }), 950);
   }
-  if (!STREETS && !startTrip.noted) { startTrip.noted = true; setTimeout(() => toast(PREVIEW ? 'Stadtplan und Fußwege laden, wenn SafeRide unter seiner eigenen Adresse läuft. Diese Vorschau kann keine Kartenkacheln laden.' : 'Der Stadtplan hat nicht geladen, darum sind Fußwege gerade Linien. Prüf deine Verbindung.', 5200), 1200); }
+  if (!STREETS && !startTrip.noted) { startTrip.noted = true; setTimeout(() => toast(tt(PREVIEW ? 'Stadtplan und Fußwege laden, wenn SafeRide unter seiner eigenen Adresse läuft. Diese Vorschau kann keine Kartenkacheln laden.' : 'Der Stadtplan hat nicht geladen, darum sind Fußwege gerade Linien. Prüf deine Verbindung.'), 5200), 1200); }
   tripTick(); setTimeout(setCardH, 50);
   // Way Out maps this trip to an MVG route (first boarding stop -> destination) so Notfall knows the train.
   const ride = r.legs.find(l => l.type === 'ride');
@@ -1466,20 +1469,20 @@ function tripTick() {
     for (const sid of rem) { const s2 = ST[sid]; if (s2 && metres([s2.lng, s2.lat], [z.lng, z.lat]) <= z.r) { tr.newZone = z; break; } }
     if (tr.newZone) break;
   }
-  if (st.kind === 'arrive' && now - st.start > 120) { endTrip('Du bist angekommen. Die Karte zeigt wieder alle Linien.'); return; }
+  if (st.kind === 'arrive' && now - st.start > 120) { endTrip(tt('Du bist angekommen. Die Karte zeigt wieder alle Linien.')); return; }
   renderTrip(v);
 }
 function renderTrip(v) {
   const tr = ROUTE.trip; if (!tr) return;
   const st = tr.steps[tr.cur]; v = v || stepView(st, tr.live, false);
-  setHTML($('#tripDest'), `Nach <b style="color:var(--ink)">${esc(stName(tr.dest))}</b>, Ankunft ${absClock(tr.r.arrive)}`);
+  setHTML($('#tripDest'), tt('Nach <b style="color:var(--ink)">{name}</b>, Ankunft {t}', { name: esc(stName(tr.dest)), t: absClock(tr.r.arrive) }));
   let banner = '';
-  if (tr.off) banner = `<div class="tbanner"><span>Du bist in der <b>${esc(tr.off.line)}</b> Richtung ${esc(tr.off.to)}, die nicht zu dieser Route gehört.</span><div class="btns" style="margin:0"><button class="btn primary" type="button" data-act="replan">Von hier neu planen</button></div></div>`;
-  else if (tr.newZone) banner = `<div class="tbanner"><span>Neu auf deinem Weg: <b>${esc(tr.newZone.title)}</b>${tr.newZone.sid ? ` an ${esc(stName(tr.newZone.sid))}` : ''}.</span><div class="btns" style="margin:0"><button class="btn primary" type="button" data-act="replan">Sicherere Route zeigen</button><button class="btn" type="button" data-act="dismisszone" data-z="${esc(tr.newZone.id)}">Route behalten</button></div></div>`;
+  if (tr.off) banner = `<div class="tbanner"><span>${tt('Du bist in der <b>{line}</b> Richtung {to}, die nicht zu dieser Route gehört.', { line: esc(tr.off.line), to: esc(tr.off.to) })}</span><div class="btns" style="margin:0"><button class="btn primary" type="button" data-act="replan">${tt('Von hier neu planen')}</button></div></div>`;
+  else if (tr.newZone) banner = `<div class="tbanner"><span>${tt('Neu auf deinem Weg:')} <b>${esc(tt(tr.newZone.title))}</b>${tr.newZone.sid ? ` ${tt('an {name}', { name: esc(stName(tr.newZone.sid)) })}` : ''}.</span><div class="btns" style="margin:0"><button class="btn primary" type="button" data-act="replan">${tt('Sicherere Route zeigen')}</button><button class="btn" type="button" data-act="dismisszone" data-z="${esc(tr.newZone.id)}">${tt('Route behalten')}</button></div></div>`;
   setHTML($('#tripBanner'), banner);
-  setHTML($('#tripNow'), `<div class="now ${v.act ? 'act' : ''}"><span class="ic">${v.icon}</span><span class="ins">${v.ins}</span><span class="sub">${v.sub}</span></div>${st.kind === 'arrive' ? '<div class="btns" style="margin:4px 0 8px"><button class="btn primary" type="button" data-act="endtrip">Fahrt beenden</button></div>' : ''}`);
+  setHTML($('#tripNow'), `<div class="now ${v.act ? 'act' : ''}"><span class="ic">${v.icon}</span><span class="ins">${v.ins}</span><span class="sub">${v.sub}</span></div>${st.kind === 'arrive' ? `<div class="btns" style="margin:4px 0 8px"><button class="btn primary" type="button" data-act="endtrip">${tt('Fahrt beenden')}</button></div>` : ''}`);
   const nx = tr.steps[tr.cur + 1];
-  setHTML($('#tripNext'), nx ? `<div class="tnext"><span>Dann ${stepView(nx, null, true).short || stepView(nx, null, true).ins}</span></div>` : '');
+  setHTML($('#tripNext'), nx ? `<div class="tnext"><span>${tt('Dann')} ${stepView(nx, null, true).short || stepView(nx, null, true).ins}</span></div>` : '');
   setHTML($('#tripSteps'), tr.steps.map((x, i) => { const w = stepView(x, null, true); return `<div class="ts ${i < tr.cur ? 'done' : i === tr.cur ? 'cur' : ''}">${x.kind === 'walk' || x.kind === 'arrive' ? `<span class="walkbadge">${x.kind === 'walk' ? ICON.walk : ICON.pin.replace('<svg', '<svg width="18" height="18"')}</span>` : badge(x.line, 'xs')}<span>${w.ins}</span><span class="tm">${w.time || ''}</span></div>`; }).join(''));
   setCardH();
 }
@@ -1487,26 +1490,26 @@ function replanTrip() {
   const tr = ROUTE.trip; if (!tr) return;
   const origin = onboardOrigin() || (myPosition() ? { lng: myPosition()[0], lat: myPosition()[1] } : (() => { const st = tr.steps[tr.cur]; const sid = st.atSid || st.toSid; return { sid }; })());
   const r = findRoute(origin, tr.dest, routingContext('safe', secOfDay()));
-  if (!r) { toast('Gerade keine andere Verbindung gefunden.'); return; }
+  if (!r) { toast(tt('Gerade keine andere Verbindung gefunden.')); return; }
   const old = tr.r.arrive;
   startTrip(r, tr.dest, 'safe');
   const d = Math.round((r.arrive - old) / 60);
-  toast(`Route aktualisiert${d > 0 ? `, ${d} Min später` : d < 0 ? `, ${-d} Min früher` : ''}.`);
+  toast(d > 0 ? tt('Route aktualisiert, {n} Min später.', { n: d }) : d < 0 ? tt('Route aktualisiert, {n} Min früher.', { n: -d }) : tt('Route aktualisiert.'));
 }
 
 // ---------- report
 // kind: unsafe = never a safe crowd, busy = crowded, info = goes to the operator only (no crowd on the maps)
 const SVG = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const REPORT_TYPES = {
-  harassment: { title: 'Belästigung', sub: 'Jemand bedrängt dich oder andere', kind: 'unsafe', sev: 3, icon: ICON.warn },
-  aggressive: { title: 'Aggressive Person', sub: 'Pöbeln, Drohen, Streit', kind: 'unsafe', sev: 3, icon: SVG('<circle cx="12" cy="12" r="9"/><path d="M8 9l2 1M16 9l-2 1M8.5 16c1-1 2.2-1.5 3.5-1.5s2.5.5 3.5 1.5"/>') },
-  drunk: { title: 'Betrunkene Gruppe', sub: 'Laut und unberechenbar', kind: 'unsafe', sev: 2, icon: ICON.report },
-  followed: { title: 'Verfolgt oder beobachtet', sub: 'Jemand folgt dir', kind: 'unsafe', sev: 3, icon: SVG('<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>') },
-  theft: { title: 'Diebstahl', sub: 'Taschendiebe oder Raub', kind: 'unsafe', sev: 2, icon: SVG('<path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 016 0"/>') },
-  crowded: { title: 'Überfüllt', sub: 'Gedränge am Bahnsteig oder im Zug', kind: 'busy', sev: 1, icon: SVG('<circle cx="7" cy="8" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="17" cy="8" r="2"/><path d="M3.5 18c.5-2.6 1.8-4 3.5-4s3 1.4 3.5 4M8.5 18c.5-2.8 1.8-4.2 3.5-4.2s3 1.4 3.5 4.2M13.5 18c.5-2.6 1.8-4 3.5-4s3 1.4 3.5 4"/>') },
-  broken: { title: 'Defekt', sub: 'Licht, Aufzug oder Rolltreppe', kind: 'info', sev: 1, icon: SVG('<path d="M14.5 6.5a4 4 0 00-5 5L4 17l3 3 5.5-5.5a4 4 0 005-5l-2.5 2.5-2.5-.5-.5-2.5z"/>') },
-  dirty: { title: 'Verschmutzung', sub: 'Fahrzeug oder Station', kind: 'info', sev: 1, icon: SVG('<path d="M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z"/>') },
-  other: { title: 'Eigene Meldung', sub: '', kind: 'info', sev: 1, icon: ICON.info },
+  harassment: { title: N('Belästigung'), sub: N('Jemand bedrängt dich oder andere'), kind: 'unsafe', sev: 3, icon: ICON.warn },
+  aggressive: { title: N('Aggressive Person'), sub: N('Pöbeln, Drohen, Streit'), kind: 'unsafe', sev: 3, icon: SVG('<circle cx="12" cy="12" r="9"/><path d="M8 9l2 1M16 9l-2 1M8.5 16c1-1 2.2-1.5 3.5-1.5s2.5.5 3.5 1.5"/>') },
+  drunk: { title: N('Betrunkene Gruppe'), sub: N('Laut und unberechenbar'), kind: 'unsafe', sev: 2, icon: ICON.report },
+  followed: { title: N('Verfolgt oder beobachtet'), sub: N('Jemand folgt dir'), kind: 'unsafe', sev: 3, icon: SVG('<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>') },
+  theft: { title: N('Diebstahl'), sub: N('Taschendiebe oder Raub'), kind: 'unsafe', sev: 2, icon: SVG('<path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 016 0"/>') },
+  crowded: { title: N('Überfüllt'), sub: N('Gedränge am Bahnsteig oder im Zug'), kind: 'busy', sev: 1, icon: SVG('<circle cx="7" cy="8" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="17" cy="8" r="2"/><path d="M3.5 18c.5-2.6 1.8-4 3.5-4s3 1.4 3.5 4M8.5 18c.5-2.8 1.8-4.2 3.5-4.2s3 1.4 3.5 4.2M13.5 18c.5-2.6 1.8-4 3.5-4s3 1.4 3.5 4"/>') },
+  broken: { title: N('Defekt'), sub: N('Licht, Aufzug oder Rolltreppe'), kind: 'info', sev: 1, icon: SVG('<path d="M14.5 6.5a4 4 0 00-5 5L4 17l3 3 5.5-5.5a4 4 0 005-5l-2.5 2.5-2.5-.5-.5-2.5z"/>') },
+  dirty: { title: N('Verschmutzung'), sub: N('Fahrzeug oder Station'), kind: 'info', sev: 1, icon: SVG('<path d="M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z"/>') },
+  other: { title: N('Eigene Meldung'), sub: N(''), kind: 'info', sev: 1, icon: ICON.info },
 };
 function reportWhere() {
   const p = myPosition(), near = nearestStation(p || map.getCenter().toArray(), 300);
@@ -1528,8 +1531,8 @@ function sendReport(kind, text = null) {
   const p = myPosition() || map.getCenter().toArray(), near = nearestStation(p, 300);
   // title stays German: it is the operator's label (src/hotspots.ts REPORT_CATEGORIES); the UI translates it with tt()
   const r = { id: 'me-' + Date.now(), kind: 'report', category: kind, text, sev: cfg.sev, size: null, intensity: null, title: cfg.title,
-              body: text || (near ? `Von dir gemeldet bei ${near.name}.` : 'Von dir gemeldet.'), at: p, r: 250,
-              from: Date.now(), to: Date.now() + 45 * 60000, source: 'Deine Meldung', mine: true };
+              body: text || N('Von dir gemeldet.'), at: p, r: 250,
+              from: Date.now(), to: Date.now() + 45 * 60000, source: N('Deine Meldung'), mine: true };
   MYREPORTS.push(r); saveJSON(KEY_R, MYREPORTS); ALERTS.push(r); share(r);
   closeSheet(); refreshAlertsEverywhere();
   toast(tt('{title} an die Leitstelle gesendet.', { title: tt(cfg.title) }), 5000, { label: tt('Rückgängig'), run: () => { withdraw(r.id); toast(tt('Meldung zurückgenommen.')); } });
@@ -1550,8 +1553,8 @@ function share(a) {
 addEventListener('sr:crowds', e => {
   const mine = new Set(MYREPORTS.map(r => r.id)), now = Date.now();
   SHARED = e.detail.filter(c => !mine.has(c.id)).map(c => ({ id: 'shared-' + (c.id || `${c.lat},${c.lng}`), kind: 'report', sev: c.kind === 'unsafe' ? 3 : 2,
-    title: c.label, body: c.id ? 'Von einem anderen Fahrgast gemeldet.' : 'Way-Out-Meldung aus der Leitstelle.', at: [c.lng, c.lat], r: 250,
-    from: c.from ?? now, to: c.to ?? now + 45 * 60000, source: 'Leitstelle', shared: true }));
+    title: c.label, body: N(c.id ? 'Von einem anderen Fahrgast gemeldet.' : 'Way-Out-Meldung aus der Leitstelle.'), at: [c.lng, c.lat], r: 250,
+    from: c.from ?? now, to: c.to ?? now + 45 * 60000, source: N('Leitstelle'), shared: true }));
   ALERTS = [...ALERTS.filter(a => !a.shared), ...SHARED];
   if (map) refreshAlertsEverywhere(); // before boot: loadMonitoring picks SHARED up
 });
@@ -1598,7 +1601,7 @@ function bindHold(btn, done) {
 // Simulated call: no real phone call; the control room gets a pin with location and ride context.
 let CALL = null;
 function startCall() {
-  const id = dropPin('Anruf Stationssicherheit', 'Simulierter Anruf aus SafeRide, mit Standort und Fahrkontext.');
+  const id = dropPin(N('Anruf Stationssicherheit'), N('Simulierter Anruf aus SafeRide, mit Standort und Fahrkontext.'));
   CALL = { at: Date.now(), sent: !!id, located: !!myPosition() };
   openSheet('call');
 }
@@ -1635,7 +1638,7 @@ let WAYOUT_PIN = null;
 function startWayOut() {
   const stop = wayOutStop(); if (!stop) { toast(tt('Die Simulation startet gleich. Versuch es in ein paar Sekunden noch mal.')); return; }
   closeSheet(); closeCard();
-  WAYOUT_PIN = dropPin('Way Out aktiv', `Unterwegs zum nächsten sicheren Ort an ${stop.name}.`);
+  WAYOUT_PIN = dropPin(N('Way Out aktiv'), N('Unterwegs zum nächsten sicheren Ort.'));
   dispatchEvent(new CustomEvent('sr:wayout', { detail: stop }));
 }
 // "Mir geht's gut" in Way Out: take the pin back.
@@ -1653,7 +1656,7 @@ function renderProfile() {
 // ---------- filters UI
 const GROUPS = [
   { key: 'UBAHN', label: 'U-Bahn', pick: L => L.mode === 'UBAHN' }, { key: 'SBAHN', label: 'S-Bahn', pick: L => L.mode === 'SBAHN' },
-  { key: 'TRAM', label: 'Tram', pick: L => L.mode === 'TRAM' && !L.night }, { key: 'NIGHT', label: 'Nachttram', pick: L => L.mode === 'TRAM' && L.night },
+  { key: 'TRAM', label: 'Tram', pick: L => L.mode === 'TRAM' && !L.night }, { key: 'NIGHT', label: tt('Nachttram'), pick: L => L.mode === 'TRAM' && L.night },
   { key: 'METROBUS', label: 'MetroBus', pick: L => L.mode === 'METROBUS' },
 ];
 function buildFilterUI() {
@@ -1661,31 +1664,31 @@ function buildFilterUI() {
     return `<button class="chip" type="button" data-mode="${m}" aria-pressed="${F.modes[m] && has}" ${has ? '' : 'disabled'}><span class="glyph" style="background:${c}">${g}</span>${MODE_LABEL[m]}</button>`; }).join('');
   $('#groups').innerHTML = GROUPS.map(G => { const ls = LINES.filter(G.pick);
     return `<details class="dd"><summary>${G.label}<span class="count" data-count="${G.key}"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
-      <div class="inner">${ls.length ? `<div class="row"><button type="button" data-all="${G.key}">Alle wählen</button><button type="button" data-none="${G.key}">Keine</button></div>
+      <div class="inner">${ls.length ? `<div class="row"><button type="button" data-all="${G.key}">${tt('Alle wählen')}</button><button type="button" data-none="${G.key}">${tt('Keine')}</button></div>
       <div class="badges">${ls.map(L => `<button class="linebtn" type="button" data-line="${esc(L.line)}" aria-pressed="false" aria-label="${MODE_LABEL[L.mode]} ${esc(L.line)}">${badge(L.line)}</button>`).join('')}</div>`
-      : `<p class="note">Noch keine ${G.label}-Linien in diesen Daten.</p>`}</div></details>`; }).join('');
+      : `<p class="note">${tt('Noch keine {what}-Linien in diesen Daten.', { what: G.label })}</p>`}</div></details>`; }).join('');
 }
 const TRAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 3h6M12 3v3M8 21l2-3M16 21l-2-3M6 12h12"/></svg>';
 function renderModeRail() {
   const el = $('#modeRail'); if (!el) return;
   setHTML(el, MODES.filter(m => LINES.some(L => L.mode === m)).map(m => { const [g, c] = MODE_GLYPH[m], on = !!F.modes[m];
-    return `<button type="button" data-railmode="${m}" aria-pressed="${on}" aria-label="${MODE_LABEL[m]}: ${on ? 'sichtbar, tippen zum Ausblenden' : 'ausgeblendet, tippen zum Einblenden'}" title="${MODE_LABEL[m]}"><span class="g ${m}" style="--c:${c}">${m === 'TRAM' ? TRAM_SVG : g}</span></button>`; }).join(''));
+    return `<button type="button" data-railmode="${m}" aria-pressed="${on}" aria-label="${MODE_LABEL[m]}: ${tt(on ? 'sichtbar, tippen zum Ausblenden' : 'ausgeblendet, tippen zum Einblenden')}" title="${MODE_LABEL[m]}"><span class="g ${m}" style="--c:${c}">${m === 'TRAM' ? TRAM_SVG : g}</span></button>`; }).join(''));
 }
 function syncFilterUI() {
   renderModeRail();
   const vis = visibleSet(), base = baseSet();
   $$('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === F.view)));
-  $('#viewNote').textContent = F.view === 'all' ? 'Jede Linie in den Daten, auch Nachttrams.' : F.view === 'custom' ? `Du hast ${F.custom.length} Linie${F.custom.length === 1 ? '' : 'n'} gewählt. Wähle Basis oder Alle Linien, um zurückzugehen.` : 'U-Bahn, S-Bahn, MetroBus und die meistgenutzten Trams: 16, 17, 18, 19, 20, 21, 25 und 27.';
+  $('#viewNote').textContent = F.view === 'all' ? tt('Jede Linie in den Daten, auch Nachttrams.') : F.view === 'custom' ? tt('Du hast {n} Linien gewählt. Wähle Basis oder Alle Linien, um zurückzugehen.', { n: F.custom.length }) : tt('U-Bahn, S-Bahn, MetroBus und die meistgenutzten Trams: 16, 17, 18, 19, 20, 21, 25 und 27.');
   $$('.chip[data-mode]').forEach(c => { if (!c.disabled) c.setAttribute('aria-pressed', String(!!F.modes[c.dataset.mode])); });
   $$('.linebtn').forEach(b => b.setAttribute('aria-pressed', String(base.has(b.dataset.line))));
-  for (const G of GROUPS) { const el = $(`[data-count="${G.key}"]`); if (!el) continue; const ls = LINES.filter(G.pick); el.textContent = ls.length ? `${ls.filter(L => vis.has(L.line)).length} von ${ls.length} sichtbar` : 'Noch keine Daten'; }
+  for (const G of GROUPS) { const el = $(`[data-count="${G.key}"]`); if (!el) continue; const ls = LINES.filter(G.pick); el.textContent = ls.length ? tt('{a} von {b} sichtbar', { a: ls.filter(L => vis.has(L.line)).length, b: ls.length }) : tt('Noch keine Daten'); }
   $('#tStations').checked = F.stations; $('#tVehicles').checked = F.vehicles; $('#tZones').checked = F.zones;
 }
 function renderSearch(q) {
   const box = $('#searchResults'); q = q.trim().toLowerCase().replace(/\s+/g, '');
   if (!q) { box.innerHTML = ''; return; }
   const hits = LINES.filter(L => L.line.toLowerCase().includes(q) || L.termini.toLowerCase().replace(/\s+/g, '').includes(q)).slice(0, 8);
-  box.innerHTML = hits.length ? hits.map(L => `<button class="result" type="button" data-result="${esc(L.line)}">${badge(L.line)}<span class="t">${esc(L.termini)}</span></button>`).join('') : `<p class="note">Keine Linie passt zu „${esc(q)}“. Probier eine Nummer wie 19 oder einen Namen wie U6.</p>`;
+  box.innerHTML = hits.length ? hits.map(L => `<button class="result" type="button" data-result="${esc(L.line)}">${badge(L.line)}<span class="t">${esc(L.termini)}</span></button>`).join('') : `<p class="note">${tt('Keine Linie passt zu „{q}“. Probier eine Nummer wie 19 oder einen Namen wie U6.', { q: esc(q) })}</p>`;
 }
 function toggleLine(l) {
   if (F.view !== 'custom') { F.custom = [...baseSet()]; F.view = 'custom'; }
@@ -1707,7 +1710,7 @@ function bindUI() {
     const d = t.dataset;
     if (d.view) { F.view = d.view; closeCard(); applyFilters(); return; }
     if (t.matches('.chip[data-mode]')) { F.modes[d.mode] = !F.modes[d.mode]; applyFilters(); return; }
-    if (d.railmode) { const m = d.railmode; F.modes[m] = !F.modes[m]; applyFilters(); toast(`${MODE_LABEL[m]} auf der Karte ${F.modes[m] ? 'eingeblendet' : 'ausgeblendet'}.`, 1800); return; }
+    if (d.railmode) { const m = d.railmode; F.modes[m] = !F.modes[m]; applyFilters(); toast(tt(F.modes[m] ? '{what} auf der Karte eingeblendet.' : '{what} auf der Karte ausgeblendet.', { what: MODE_LABEL[m] }), 1800); return; }
     if (t.matches('.linebtn')) { toggleLine(d.line); return; }
     if (d.all || d.none) { const G = GROUPS.find(g => g.key === (d.all || d.none)); if (F.view !== 'custom') { F.custom = [...baseSet()]; F.view = 'custom'; }
       const ls = LINES.filter(G.pick).map(L => L.line);
@@ -1716,8 +1719,8 @@ function bindUI() {
     if (t.hasAttribute('data-close')) { closeSheet(); return; }
     if (t.hasAttribute('data-pickclose')) { closePicker(); return; }
     if (t.hasAttribute('data-cardclose')) { if (selected && selected.type === 'route' && !ROUTE.trip) drawRoute(null); closeCard(); return; }
-    if (t.hasAttribute('data-share-copy')) { toast('Einladungslink kopiert. Er ist 60 Minuten gültig.'); return; }
-    if (t.hasAttribute('data-share-extend')) { SOCIAL.ends += 60 * 60000; renderShareSheet(); renderShareButton(); toast('Um 1 Stunde verlängert.'); return; }
+    if (t.hasAttribute('data-share-copy')) { toast(tt('Einladungslink kopiert. Er ist 60 Minuten gültig.')); return; }
+    if (t.hasAttribute('data-share-extend')) { SOCIAL.ends += 60 * 60000; renderShareSheet(); renderShareButton(); toast(tt('Um 1 Stunde verlängert.')); return; }
     if (t.hasAttribute('data-share-stop')) { stopSharing(); return; }
     if (d.friend || d.friendFocus) {
       const id = d.friend || d.friendFocus, f = SOCIAL.friends.find(x => x.id === id); if (!f) return;
@@ -1731,16 +1734,16 @@ function bindUI() {
     if (d.act === 'showbasic') { F.view = 'basic'; closeCard(); applyFilters(); return; }
     if (d.act === 'fit') { fitLine(d.line); return; }
     if (d.act === 'routeto') { ROUTE.to = d.sid; ROUTE.from = null; computeRoutes(); openSheet('route'); return; }
-    if (d.act === 'pref' || d.act === 'avoid') { togglePref(d.act === 'pref' ? 'preferred' : 'avoided', d.sid); stationCard(d.sid); toast(P.avoided.includes(d.sid) ? `${stName(d.sid)} wird in sicheren Routen gemieden.` : P.preferred.includes(d.sid) ? `${stName(d.sid)} ist jetzt bevorzugt.` : `${stName(d.sid)} aus deinen Vorlieben entfernt.`); return; }
-    if (d.act === 'trip') { const R = ROUTE.results; startTrip(d.k === 'fast' ? R.fast : R.safe, ROUTE.to, d.k === 'fast' && !R.same ? 'fast' : 'safe'); if (Loc.mode === 'off') toast('Fahrt gestartet. Schalte den Standort ein, damit die Schritte mitlaufen.', 3500); return; }
+    if (d.act === 'pref' || d.act === 'avoid') { togglePref(d.act === 'pref' ? 'preferred' : 'avoided', d.sid); stationCard(d.sid); toast(tt(P.avoided.includes(d.sid) ? '{name} wird in sicheren Routen gemieden.' : P.preferred.includes(d.sid) ? '{name} ist jetzt bevorzugt.' : '{name} aus deinen Vorlieben entfernt.', { name: stName(d.sid) })); return; }
+    if (d.act === 'trip') { const R = ROUTE.results; startTrip(d.k === 'fast' ? R.fast : R.safe, ROUTE.to, d.k === 'fast' && !R.same ? 'fast' : 'safe'); if (Loc.mode === 'off') toast(tt('Fahrt gestartet. Schalte den Standort ein, damit die Schritte mitlaufen.'), 3500); return; }
     if (d.act === 'routeopts') { openSheet('route'); return; }
-    if (d.act === 'endtrip') { closeSheet(); endTrip('Fahrt beendet. Die Karte zeigt wieder alle Linien.'); return; }
+    if (d.act === 'endtrip') { closeSheet(); endTrip(tt('Fahrt beendet. Die Karte zeigt wieder alle Linien.')); return; }
     if (d.act === 'replan') { replanTrip(); return; }
     if (d.act === 'dismisszone') { if (ROUTE.trip) { ROUTE.trip.dismissed.add(d.z); tripTick(); } return; }
     if (d.act === 'focustoggle') { if (ROUTE.trip) { ROUTE.trip.focus = !ROUTE.trip.focus; applyFilters(); renderCond(); } return; }
     // route sheet
-    if (d.rfield) { openPicker(d.rfield === 'from' ? 'Start' : 'Wohin?', sid => { if (sid === '__me') ROUTE.from = null; else if (d.rfield === 'from') ROUTE.from = { sid }; else ROUTE.to = sid; computeRoutes(); renderRouteSheet(); },
-      { quick: d.rfield === 'from' ? [{ id: '__me', label: 'Mein Standort', sub: myPosition() ? 'Live-Standort' : 'Demo-Standort am Odeonsplatz', icon: ICON.dot }] : (P.home && ST[P.home] ? [{ id: P.home, label: 'Zuhause', sub: ST[P.home].name }] : []) }); return; }
+    if (d.rfield) { openPicker(tt(d.rfield === 'from' ? 'Start' : 'Wohin?'), sid => { if (sid === '__me') ROUTE.from = null; else if (d.rfield === 'from') ROUTE.from = { sid }; else ROUTE.to = sid; computeRoutes(); renderRouteSheet(); },
+      { quick: d.rfield === 'from' ? [{ id: '__me', label: tt('Mein Standort'), sub: tt(myPosition() ? 'Live-Standort' : 'Demo-Standort am Odeonsplatz'), icon: ICON.dot }] : (P.home && ST[P.home] ? [{ id: P.home, label: tt('Zuhause'), sub: ST[P.home].name }] : []) }); return; }
     if (t.hasAttribute('data-rswap')) { const from = ROUTE.from && ROUTE.from.sid ? ROUTE.from.sid : nearestStation(myPosition() || DEMO_POS, 1500)?.id; if (!from) return; ROUTE.from = { sid: ROUTE.to }; ROUTE.to = from; computeRoutes(); renderRouteSheet(); return; }
     if (d.rquick) { ROUTE.to = d.rquick; computeRoutes(); renderRouteSheet(); return; }
     if (d.rmode) { ROUTE.mode = d.rmode; renderRouteSheet(); return; }
@@ -1762,7 +1765,7 @@ function bindUI() {
     if (d.loc === 'start') { locStart(true); renderTrackSheet(); return; }
     if (d.loc === 'stop') { locStop(); renderTrackSheet(); return; }
     if (d.loc === 'demo') { startDemoRide(); return; }
-    if (d.iam) { const [line, to] = d.iam.split('|'); Loc.override = { line, to, at: Date.now() }; analyze(); toast(`Alles klar: ${line} Richtung ${to}.`); return; }
+    if (d.iam) { const [line, to] = d.iam.split('|'); Loc.override = { line, to, at: Date.now() }; analyze(); toast(tt('Alles klar: {line} Richtung {to}.', { line, to })); return; }
   });
   document.addEventListener('change', e => {
     const t = e.target;
@@ -1782,7 +1785,7 @@ function bindUI() {
   });
   $('#btnTrack').addEventListener('click', () => openSheet('track'));
   $('#scrim').addEventListener('click', () => { if ($('#sheet-picker').classList.contains('open')) closePicker(); else closeSheet(); });
-  $('#btnReset').addEventListener('click', () => { F = JSON.parse(JSON.stringify(FDEF)); $('#lineSearch').value = ''; renderSearch(''); applyFilters(); toast('Filter auf Basis zurückgesetzt.'); });
+  $('#btnReset').addEventListener('click', () => { F = JSON.parse(JSON.stringify(FDEF)); $('#lineSearch').value = ''; renderSearch(''); applyFilters(); toast(tt('Filter auf Basis zurückgesetzt.')); });
   $('#lineSearch').addEventListener('input', e => renderSearch(e.target.value));
   $('#pickInput').addEventListener('input', e => renderPick(e.target.value));
   $('#pickInput').addEventListener('keydown', e => { if (e.key === 'Enter') { const f = $('#pickResults [data-pick]'); if (f) f.click(); } });
@@ -1791,7 +1794,7 @@ function bindUI() {
   $('#btnLocate').addEventListener('click', () => {
     if (Loc.mode === 'off') { openSheet('track'); return; }
     Loc.follow = !Loc.follow; const p = myPosition();
-    if (Loc.follow && p && !inArea(p)) { Loc.follow = false; toast('Du bist außerhalb von München, darum bleibt die Karte auf der Stadt.'); }
+    if (Loc.follow && p && !inArea(p)) { Loc.follow = false; toast(tt('Du bist außerhalb von München, darum bleibt die Karte auf der Stadt.')); }
     else if (Loc.follow && p) map.flyTo({ center: p, zoom: Math.max(map.getZoom(), 14.5), duration: reduced() ? 0 : 900 });
     renderTrack();
   });
@@ -1801,7 +1804,7 @@ function bindUI() {
 async function boot() {
   applyTheme();
   let d;
-  try { d = await loadData(); } catch (e) { $('#loading').textContent = location.protocol === 'file:' ? 'Diese Kopie kann ihre Datendateien nicht aus einem Ordner lesen. Bitte über einen Webserver öffnen.' : 'Die Netzdaten konnten nicht geladen werden. Lade die Seite neu.'; console.error(e); return; }
+  try { d = await loadData(); } catch (e) { $('#loading').textContent = tt(location.protocol === 'file:' ? 'Diese Kopie kann ihre Datendateien nicht aus einem Ordner lesen. Bitte über einen Webserver öffnen.' : 'Die Netzdaten konnten nicht geladen werden. Lade die Seite neu.'); console.error(e); return; }
   P.preferred = P.preferred.filter(id => ST[id]); P.avoided = P.avoided.filter(id => ST[id]); if (P.home && !ST[P.home]) P.home = null;
   F.custom = F.custom.filter(l => LINE[l]);
   buildFilterUI(); bindUI(); syncFilterUI(); renderTrack(); renderCond();

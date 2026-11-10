@@ -39,8 +39,9 @@ export function mockStation(stop: { name: string; lat: number; lng: number }, tr
   chain(M)
   edge(P[1], M[0], 'escalator') // back
   edge(P[3], M[4], 'steps') // front
-  const staff = node(staffFront ? 25 : -25, 8, -1)
-  edge(staffFront ? M[4] : M[0], staff, 'walk')
+  // staff point at the front end of the Sperrengeschoss (nearer than the street) or in its middle (the busy exit is nearer)
+  const staff = node(staffFront ? 25 : 0, 8, -1)
+  edge(staffFront ? M[4] : M[2], staff, 'walk')
   // street
   const back = node(-45, 0, 0), front = node(45, 0, 0)
   edge(M[0], back, 'escalator'); edge(M[4], front, 'steps')

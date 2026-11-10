@@ -61,8 +61,8 @@ export default function Navigate(p: Props) {
       if (spot) {
         const other = spots.find((s) => s !== spot) ?? null
         const arrive = spot.kind === 'staff' ? t(ARRIVE.wait) : exitText(spot.exit!, 'Ausgang {ref}{street}. Hier sind Menschen unterwegs.')
-        const why = spot === spots[0] ? (spot.kind === 'staff' ? 'Nächster Ort mit Personal' : 'Nächster belebter Bereich') : spot.kind === 'staff' ? 'Zu Personal' : 'Zu Menschen'
-        return { steps: toSteps(g, spot.path, p.travelBearing, arrive, origin), hint: [t(why), hint].filter(Boolean).join(' · '), other }
+        const why = t(spot === spots[0] ? (spot.kind === 'staff' ? 'Nächster Ort mit Personal' : 'Nächster belebter Bereich') : spot.kind === 'staff' ? 'Zu Personal' : 'Zu Menschen')
+        return { steps: toSteps(g, spot.path, p.travelBearing, arrive, origin), hint: [why, hint].filter(Boolean).join(' · '), other }
       }
     }
     if (out) {
