@@ -79,7 +79,7 @@ function sanitizeState() {
   const src = P.sources && typeof P.sources === 'object' ? P.sources : {}; P.sources = {}; for (const k in PDEF.sources) P.sources[k] = bool(src[k], true);
   const md = F.modes && typeof F.modes === 'object' ? F.modes : {}; F.modes = {}; for (const k in FDEF.modes) F.modes[k] = bool(md[k], true);
   if (!['basic', 'all', 'custom'].includes(F.view)) F.view = 'basic';
-  F.custom = strs(F.custom); for (const k of ['stations', 'vehicles', 'zones']) F[k] = bool(F[k], true);
+  F.custom = strs(F.custom); F.stations = F.vehicles = F.zones = true; // no switch for them any more (old saved state must not hide them)
   MYREPORTS = MYREPORTS.filter(r => r && typeof r === 'object' && typeof r.id === 'string' && typeof r.to === 'number' && typeof r.from === 'number');
 }
 sanitizeState();
@@ -880,7 +880,7 @@ function addDynamicLayers() {
 function wantedTheme() { if (P.style === 'light' || P.style === 'dark') return P.style; const h = mzHour(); return (h >= 20 || h < 6) ? 'dark' : 'light'; }
 function applyTheme() {
   theme = wantedTheme(); document.documentElement.dataset.mode = theme;
-  const meta = $('meta[name="theme-color"]'); if (meta) meta.content = theme === 'dark' ? '#0E1620' : '#F4F6F8';
+  const meta = $('meta[name="theme-color"]'); if (meta) meta.content = theme === 'dark' ? '#0D0D0F' : '#F2F2F7';
   if (!map || !map.getLayer('lbl-major')) return;
   const T = MAP_THEME[theme], sp = (l, k, v) => map.setPaintProperty(l, k, v);
   sp('bg', 'background-color', T.land); sp('mask', 'fill-color', T.outside); sp('boundary', 'line-color', T.boundary); sp('parks', 'fill-color', T.park);
@@ -916,7 +916,7 @@ function applyFilters() {
   const vv = (ids2, on) => ids2.forEach(id => map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'));
   vv(['st-major', 'st-minor', 'lbl-major', 'lbl-minor'], F.stations || focus); vv(['veh-dot', 'veh-icon'], F.vehicles || focus); vv(['zones-fill', 'zones-icon', 'closures'], F.zones || focus);
   vv(['st-pref', 'st-avoid'], !focus);
-  applyHighlight(); applyStreetStyle(); tick(true); syncFilterUI(); saveF();
+  applyHighlight(); applyStreetStyle(); tick(true); renderModeRail(); saveF();
   if (vis.size === 0 && !focus) toast(tt('Keine Linien ausgewählt. Tippe in der Leiste rechts auf ein Verkehrsmittel.'));
 }
 function applyHighlight() {
@@ -1409,13 +1409,10 @@ function startTrip(r, dest, kind) {
   }
   if (!STREETS && !startTrip.noted) { startTrip.noted = true; setTimeout(() => toast(tt(PREVIEW ? 'Stadtplan und Fußwege laden, wenn SafeRide unter seiner eigenen Adresse läuft. Diese Vorschau kann keine Kartenkacheln laden.' : 'Der Stadtplan hat nicht geladen, darum sind Fußwege gerade Linien. Prüf deine Verbindung.'), 5200), 1200); }
   tripTick(); setTimeout(setCardH, 50);
-  // Way Out maps this trip to an MVG route (first boarding stop -> destination) so Notfall knows the train.
-  const ride = r.legs.find(l => l.type === 'ride');
-  if (ride) dispatchEvent(new CustomEvent('sr:trip', { detail: { from: stName(ride.fromSid), to: stName(dest) } }));
 }
 function endTrip(msg) {
   const tr = ROUTE.trip; if (!tr) return;
-  ROUTE.trip = null; ROUTE.chosen = null; selected = null; Loc.follow = false; dispatchEvent(new CustomEvent('sr:trip', { detail: null }));
+  ROUTE.trip = null; ROUTE.chosen = null; selected = null; Loc.follow = false;
   document.body.classList.remove('trip-on'); closeCard(); drawRoute(null); applyFilters(); renderCond(); renderTrack(); renderModeRail(); setCardH();
   if (tr.prevView && map) map.flyTo({ center: tr.prevView.center, zoom: tr.prevView.zoom, duration: reduced() ? 0 : 800 });
   if (msg) toast(msg);
@@ -1653,47 +1650,12 @@ function renderProfile() {
     <p class="note">${tt('SafeRide ist ein Prototyp: Fahrt, Freunde, Anruf und Way Out sind simuliert.')}</p>`;
 }
 
-// ---------- filters UI
-const GROUPS = [
-  { key: 'UBAHN', label: 'U-Bahn', pick: L => L.mode === 'UBAHN' }, { key: 'SBAHN', label: 'S-Bahn', pick: L => L.mode === 'SBAHN' },
-  { key: 'TRAM', label: 'Tram', pick: L => L.mode === 'TRAM' && !L.night }, { key: 'NIGHT', label: tt('Nachttram'), pick: L => L.mode === 'TRAM' && L.night },
-  { key: 'METROBUS', label: 'MetroBus', pick: L => L.mode === 'METROBUS' },
-];
-function buildFilterUI() {
-  $('#modeGrid').innerHTML = MODES.map(m => { const has = LINES.some(L => L.mode === m), [g, c] = MODE_GLYPH[m];
-    return `<button class="chip" type="button" data-mode="${m}" aria-pressed="${F.modes[m] && has}" ${has ? '' : 'disabled'}><span class="glyph" style="background:${c}">${g}</span>${MODE_LABEL[m]}</button>`; }).join('');
-  $('#groups').innerHTML = GROUPS.map(G => { const ls = LINES.filter(G.pick);
-    return `<details class="dd"><summary>${G.label}<span class="count" data-count="${G.key}"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
-      <div class="inner">${ls.length ? `<div class="row"><button type="button" data-all="${G.key}">${tt('Alle wählen')}</button><button type="button" data-none="${G.key}">${tt('Keine')}</button></div>
-      <div class="badges">${ls.map(L => `<button class="linebtn" type="button" data-line="${esc(L.line)}" aria-pressed="false" aria-label="${MODE_LABEL[L.mode]} ${esc(L.line)}">${badge(L.line)}</button>`).join('')}</div>`
-      : `<p class="note">${tt('Noch keine {what}-Linien in diesen Daten.', { what: G.label })}</p>`}</div></details>`; }).join('');
-}
+// ---------- mode rail
 const TRAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 3h6M12 3v3M8 21l2-3M16 21l-2-3M6 12h12"/></svg>';
 function renderModeRail() {
   const el = $('#modeRail'); if (!el) return;
   setHTML(el, MODES.filter(m => LINES.some(L => L.mode === m)).map(m => { const [g, c] = MODE_GLYPH[m], on = !!F.modes[m];
     return `<button type="button" data-railmode="${m}" aria-pressed="${on}" aria-label="${MODE_LABEL[m]}: ${tt(on ? 'sichtbar, tippen zum Ausblenden' : 'ausgeblendet, tippen zum Einblenden')}" title="${MODE_LABEL[m]}"><span class="g ${m}" style="--c:${c}">${m === 'TRAM' ? TRAM_SVG : g}</span></button>`; }).join(''));
-}
-function syncFilterUI() {
-  renderModeRail();
-  const vis = visibleSet(), base = baseSet();
-  $$('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === F.view)));
-  $('#viewNote').textContent = F.view === 'all' ? tt('Jede Linie in den Daten, auch Nachttrams.') : F.view === 'custom' ? tt('Du hast {n} Linien gewählt. Wähle Basis oder Alle Linien, um zurückzugehen.', { n: F.custom.length }) : tt('U-Bahn, S-Bahn, MetroBus und die meistgenutzten Trams: 16, 17, 18, 19, 20, 21, 25 und 27.');
-  $$('.chip[data-mode]').forEach(c => { if (!c.disabled) c.setAttribute('aria-pressed', String(!!F.modes[c.dataset.mode])); });
-  $$('.linebtn').forEach(b => b.setAttribute('aria-pressed', String(base.has(b.dataset.line))));
-  for (const G of GROUPS) { const el = $(`[data-count="${G.key}"]`); if (!el) continue; const ls = LINES.filter(G.pick); el.textContent = ls.length ? tt('{a} von {b} sichtbar', { a: ls.filter(L => vis.has(L.line)).length, b: ls.length }) : tt('Noch keine Daten'); }
-  $('#tStations').checked = F.stations; $('#tVehicles').checked = F.vehicles; $('#tZones').checked = F.zones;
-}
-function renderSearch(q) {
-  const box = $('#searchResults'); q = q.trim().toLowerCase().replace(/\s+/g, '');
-  if (!q) { box.innerHTML = ''; return; }
-  const hits = LINES.filter(L => L.line.toLowerCase().includes(q) || L.termini.toLowerCase().replace(/\s+/g, '').includes(q)).slice(0, 8);
-  box.innerHTML = hits.length ? hits.map(L => `<button class="result" type="button" data-result="${esc(L.line)}">${badge(L.line)}<span class="t">${esc(L.termini)}</span></button>`).join('') : `<p class="note">${tt('Keine Linie passt zu „{q}“. Probier eine Nummer wie 19 oder einen Namen wie U6.', { q: esc(q) })}</p>`;
-}
-function toggleLine(l) {
-  if (F.view !== 'custom') { F.custom = [...baseSet()]; F.view = 'custom'; }
-  const s = new Set(F.custom); s.has(l) ? s.delete(l) : s.add(l); F.custom = [...s];
-  if (LINE[l] && s.has(l)) F.modes[LINE[l].mode] = true; applyFilters();
 }
 function fitLine(l) { const L = LINE[l]; if (!L) return; map.fitBounds([[L.bbox[0], L.bbox[1]], [L.bbox[2], L.bbox[3]]], { padding: { top: 140, bottom: 260, left: 40, right: 40 }, maxZoom: 14.5, duration: reduced() ? 0 : 900 }); }
 function togglePref(kind, sid) {
@@ -1708,14 +1670,7 @@ function bindUI() {
   document.addEventListener('click', e => {
     const t = e.target.closest('button, a'); if (!t) return;
     const d = t.dataset;
-    if (d.view) { F.view = d.view; closeCard(); applyFilters(); return; }
-    if (t.matches('.chip[data-mode]')) { F.modes[d.mode] = !F.modes[d.mode]; applyFilters(); return; }
     if (d.railmode) { const m = d.railmode; F.modes[m] = !F.modes[m]; applyFilters(); toast(tt(F.modes[m] ? '{what} auf der Karte eingeblendet.' : '{what} auf der Karte ausgeblendet.', { what: MODE_LABEL[m] }), 1800); return; }
-    if (t.matches('.linebtn')) { toggleLine(d.line); return; }
-    if (d.all || d.none) { const G = GROUPS.find(g => g.key === (d.all || d.none)); if (F.view !== 'custom') { F.custom = [...baseSet()]; F.view = 'custom'; }
-      const ls = LINES.filter(G.pick).map(L => L.line);
-      F.custom = d.all ? [...new Set([...F.custom, ...ls])] : F.custom.filter(l => !ls.includes(l)); if (d.all) LINES.filter(G.pick).forEach(L => F.modes[L.mode] = true); applyFilters(); return; }
-    if (d.result) { closeSheet(); lineCard(d.result); fitLine(d.result); return; }
     if (t.hasAttribute('data-close')) { closeSheet(); return; }
     if (t.hasAttribute('data-pickclose')) { closePicker(); return; }
     if (t.hasAttribute('data-cardclose')) { if (selected && selected.type === 'route' && !ROUTE.trip) drawRoute(null); closeCard(); return; }
@@ -1767,12 +1722,6 @@ function bindUI() {
     if (d.loc === 'demo') { startDemoRide(); return; }
     if (d.iam) { const [line, to] = d.iam.split('|'); Loc.override = { line, to, at: Date.now() }; analyze(); toast(tt('Alles klar: {line} Richtung {to}.', { line, to })); return; }
   });
-  document.addEventListener('change', e => {
-    const t = e.target;
-    if (t.id === 'tStations') { F.stations = t.checked; applyFilters(); }
-    if (t.id === 'tVehicles') { F.vehicles = t.checked; applyFilters(); }
-    if (t.id === 'tZones') { F.zones = t.checked; applyFilters(); }
-  });
   $('#btnShare').addEventListener('click', beginSharing);
   bindHold($('#btnCall'), startCall);
   $('#btnWayOut').addEventListener('click', startWayOut);
@@ -1785,8 +1734,6 @@ function bindUI() {
   });
   $('#btnTrack').addEventListener('click', () => openSheet('track'));
   $('#scrim').addEventListener('click', () => { if ($('#sheet-picker').classList.contains('open')) closePicker(); else closeSheet(); });
-  $('#btnReset').addEventListener('click', () => { F = JSON.parse(JSON.stringify(FDEF)); $('#lineSearch').value = ''; renderSearch(''); applyFilters(); toast(tt('Filter auf Basis zurückgesetzt.')); });
-  $('#lineSearch').addEventListener('input', e => renderSearch(e.target.value));
   $('#pickInput').addEventListener('input', e => renderPick(e.target.value));
   $('#pickInput').addEventListener('keydown', e => { if (e.key === 'Enter') { const f = $('#pickResults [data-pick]'); if (f) f.click(); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('#sheet-picker').classList.contains('open')) closePicker(); else if (openSheetId) closeSheet(); else closeCard(); } });
@@ -1807,7 +1754,7 @@ async function boot() {
   try { d = await loadData(); } catch (e) { $('#loading').textContent = tt(location.protocol === 'file:' ? 'Diese Kopie kann ihre Datendateien nicht aus einem Ordner lesen. Bitte über einen Webserver öffnen.' : 'Die Netzdaten konnten nicht geladen werden. Lade die Seite neu.'); console.error(e); return; }
   P.preferred = P.preferred.filter(id => ST[id]); P.avoided = P.avoided.filter(id => ST[id]); if (P.home && !ST[P.home]) P.home = null;
   F.custom = F.custom.filter(l => LINE[l]);
-  buildFilterUI(); bindUI(); syncFilterUI(); renderTrack(); renderCond();
+  bindUI(); renderModeRail(); renderTrack(); renderCond();
   renderShareButton(); $('#friendCount').textContent = SOCIAL.friends.length;
   registerGlyphs();
   map = new maplibregl.Map({ container: 'map', style: buildStyle(d), center: CENTER, zoom: 12, minZoom: 9, maxZoom: 17.5, maxBounds: BOUNDS,

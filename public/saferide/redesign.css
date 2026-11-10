@@ -2,39 +2,7 @@
    Fast live-location sharing is the dominant action; social context and
    safety tools stay in a quiet, thumb-reachable dock. */
 
-:root {
-  --paper: #f2f2f7;
-  --surface: #ffffff;
-  --surface-2: #f2f2f7;
-  --ink: #111113;
-  --muted: #6e6e73;
-  --hairline: rgba(17, 17, 19, .10);
-  --focus: #0878ff;
-  --danger: #e23346;
-  --ok: #1f9d63;
-  --shadow: 0 12px 34px rgba(20, 24, 31, .14), 0 2px 8px rgba(20, 24, 31, .06);
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
-  --r-lg: 28px;
-  --r-md: 18px;
-  --r-sm: 13px;
-}
-
-:root[data-mode="dark"] {
-  --paper: #0d0d0f;
-  --surface: #1c1c1e;
-  --surface-2: #2c2c2e;
-  --ink: #f5f5f7;
-  --muted: #a1a1a6;
-  --hairline: rgba(255, 255, 255, .12);
-  --focus: #64a8ff;
-  --danger: #ff4d61;
-  --shadow: 0 16px 40px rgba(0, 0, 0, .46), 0 2px 8px rgba(0, 0, 0, .32);
-}
-
-/* higher specificity than src/tokens.css, which Vite bundles after this file */
-html:root {
-  --tab-h: 266px;
-}
+/* Colours, font, radii and --tab-h come from src/tokens.css (the one token source for SafeRide and Way Out). */
 
 body {
   font-family: var(--font);
@@ -1113,7 +1081,6 @@ button {
 }
 
 @media (max-width: 370px) {
-  html:root { --tab-h: 252px; }
   .tabs .sos-call { height: 60px; }
   .tabs .sos-tile { height: 54px; }
   .tabs .trip-launch { height: 52px; }

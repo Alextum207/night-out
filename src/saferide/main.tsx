@@ -1,15 +1,13 @@
 // SafeRide page entry: Way Out lives inside SafeRide (public/saferide/app.js, plain JS).
 // Window events with app.js:
 //   in:  sr:report (share a report or pin with the control room), sr:wayout {id, name, lat, lng, travelBearing} (Way Out tapped:
-//        guide from this station's platform to the nearest staff point or busy area), sr:trip {from, to} | null (SafeRide trip
-//        started/ended: mapped to an MVG route)
+//        guide from this station's platform to the nearest staff point or busy area)
 //   out: sr:crowds (control-room crowds as alerts), sr:fine ("Mir geht's gut": take the Way Out pin back),
 //        sr:train {lat, lng, line, fly} | null (scenario train marker)
 import '../saferide.css'
 import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { getRoute, searchStations } from '../mvg'
 import { MOCK_CROWDS } from '../mock'
 import type { Report, Stop } from '../types'
 import { sessionId, useRide, type Ride } from '../rider/useRide'
@@ -22,8 +20,6 @@ type WayOutStop = { id: string; name: string; lat: number; lng: number; travelBe
 function SafeRideLayer() {
   const ride = useRide({ persist: false })
   const [wayOut, setWayOut] = useState<WayOutStop | null>(null)
-  const rideRef = useRef(ride)
-  rideRef.current = ride
 
   // Reports out, crowds in.
   useEffect(() => {
@@ -34,19 +30,6 @@ function SafeRideLayer() {
   const crowdsKey = JSON.stringify(ride.liveCrowds)
   useEffect(() => { emit('sr:crowds', JSON.parse(crowdsKey)) }, [crowdsKey])
 
-  // An active SafeRide trip becomes the Way Out train (a running scenario keeps priority, see setFreeRoute).
-  useEffect(() => {
-    let seq = 0 // only the latest trip counts; bumped on unmount too
-    const onTrip = async (e: Event) => {
-      const t = (e as CustomEvent<{ from: string; to: string } | null>).detail, my = ++seq
-      if (!t) return rideRef.current.setFreeRoute(null)
-      const [[a], [b]] = await Promise.all([searchStations(t.from), searchStations(t.to)])
-      const r = a && b ? await getRoute(a.id, b.id) : null
-      if (my === seq && r) rideRef.current.setFreeRoute(r.route)
-    }
-    addEventListener('sr:trip', onTrip)
-    return () => { seq++; removeEventListener('sr:trip', onTrip) }
-  }, [])
 
   // Scenario train on the SafeRide map; fly there when a scenario (re)starts.
   const train = ride.scenario && ride.pos && ride.leg ? { lat: ride.pos.lat, lng: ride.pos.lng, line: ride.leg.line } : null
