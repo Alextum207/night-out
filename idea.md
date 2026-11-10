@@ -230,6 +230,29 @@ The source is `saferide-munich_1.zip` from a teammate: one vanilla-JS `index.htm
   - The edge function `supabase/functions/monitor` is not deployed, so news stays demo data. MVG `/messages` sends CORS `*`, so it works directly.
   - SafeRide's demo examples stay on.
 
+**One app: emergency = Way Out (grilling round 4, 2026-11-10)**
+
+This replaces the "Notfall → Way Out" page jump.
+
+- **Overlay instead of a page jump:**
+  - Way Out runs as a React overlay inside `saferide.html`; `src/saferide/main.tsx` replaces the bridge.
+  - The rider logic is shared via `useRide` and `WayOutPanel`.
+  - `#/rider` stays only as a fallback and for tests.
+- **One emergency flow:**
+  - "Notfall" informs the control room immediately: a tap if a train is known, and the panic pin if the location is known. "Rückgängig" is available for 8 s.
+  - At the top is "110 anrufen", followed by the status / control-room feedback, the Way Out options, the reason chips and "Mir geht's gut".
+  - SafeRide's escape route via another line becomes the extra option "Andere Verbindung". It opens SafeRide's sheet, which has a "Zurück zum Notfall" button.
+  - Navigation and feedback stay inside the overlay.
+- **Design:**
+  - SafeRide's tokens (`src/tokens.css`: light/dark, Atkinson Hyperlegible, ink-on-paper, red only for danger) apply to everything riders see, including `#/rider`.
+  - The navigation arrow keeps its calm violet surface. The control room stays dark.
+- **Which train:**
+  - In the pitch it comes from the control-room scenario (`demo`/`hello`). SafeRide then shows a slim ride bar under the top bar and centres the map on the train.
+  - Without a scenario, an active SafeRide trip (first boarding stop → destination) is mapped to an MVG route by name search.
+  - With neither, the emergency flow offers 110, the pin and the escape route, but no train.
+- **Luna window** in the control room shows the integrated `saferide.html`.
+- **Navigation mini map** stays Leaflet, in the SafeRide look.
+
 ## 13. Sources
 
 - Munich Police Security Report 2025 (PP München)
