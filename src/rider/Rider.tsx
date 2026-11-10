@@ -1,12 +1,10 @@
 // #/rider: standalone Way Out (fallback and tests). The main rider app is SafeRide with the emergency overlay.
 import { useEffect, useState } from 'react'
-import { now } from '../clock'
 import { getRoute, searchStations, type StationHit } from '../mvg'
 import type { Route } from '../types'
 import { useRide } from './useRide'
-import WayOutPanel, { WayOutScreens } from './WayOutPanel'
+import WayOutPanel, { RideBar, WayOutScreens } from './WayOutPanel'
 
-const hhmm = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 const shell = 'mx-auto flex min-h-dvh max-w-md flex-col gap-4 bg-paper p-4 pb-8 font-ride text-ink'
 
 export default function Rider() {
@@ -44,28 +42,6 @@ export default function Rider() {
         )}
       </main>
     </div>
-  )
-}
-
-// Line, direction and next stop. Also used as SafeRide's ride bar.
-export function RideBar({ ride, clock = false }: { ride: ReturnType<typeof useRide>; clock?: boolean }) {
-  const { pos, leg } = ride
-  if (!pos || !leg) return null
-  return (
-    <header className="rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-sm">
-      <div className="flex items-center gap-2 text-sm text-muted">
-        <span className="rounded bg-ink px-2 py-0.5 font-bold text-paper">{leg.line}</span>
-        <span>Richtung {leg.destination}</span>
-        {clock && <span className="ml-auto tabular-nums">{hhmm(now())}</span>}
-      </div>
-      <p className="m-0 mt-2 text-lg font-semibold">
-        {pos.state === 'train'
-          ? <>Nächster Halt <b>{pos.nextStop.name}</b> in {pos.etaMin} Min</>
-          : pos.etaMin > 0
-            ? <>Am Bahnsteig <b>{pos.nextStop.name}</b>, Abfahrt in {pos.etaMin} Min</>
-            : <>Angekommen: <b>{pos.nextStop.name}</b></>}
-      </p>
-    </header>
   )
 }
 

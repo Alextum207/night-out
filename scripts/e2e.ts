@@ -107,9 +107,12 @@ try {
     }
     return texts
   }
+  // Sync on the reset itself: put every rider into Way Out first; the reset sends them back to riding.
+  const screenOf = (r: Page) => r.evaluate(() => JSON.parse(sessionStorage.getItem('wayout.state')!).screen as string)
+  for (const r of riders) if (await screenOf(r) === 'riding') await r.getByRole('button', { name: 'Way Out' }).click()
   await control.getByRole('button', { name: /Arena/ }).click()
   for (const r of riders) {
-    await r.getByText('Nächster Halt Münchner Freiheit').waitFor({ timeout: 3000 })
+    await r.waitForFunction(() => JSON.parse(sessionStorage.getItem('wayout.state')!).screen === 'riding', null, { timeout: 3000 })
     await r.getByRole('button', { name: 'Way Out' }).click()
   }
   await riders[0].getByRole('button', { name: /aussteigen/ }).click()
@@ -163,7 +166,31 @@ try {
   await srB.locator('[data-alert^="shared-4"]').waitFor({ timeout: 3000 }) // Way Out hotspot crowd (id = lat,lng)
   step('Way Out tap -> alert on SafeRide')
 
+  // --- SafeRide Notfall = Way Out overlay, no page change (issue #24) ---
+  const dialog = srA.getByRole('dialog', { name: 'Notfall' })
+  await srA.locator('#btnPanic').click()
+  await dialog.getByText('110 anrufen').waitFor({ timeout: 3000 })
+  await dialog.getByText('Nächster Halt Münchner Freiheit').waitFor({ timeout: 3000 })
+  await control.getByText('Einzelmeldung · 2').waitFor({ timeout: 3000 }) // riders[0] + this phone
+  assert.ok(srA.url().includes('/saferide.html'))
+  await dialog.getByRole('button', { name: 'Betrunkene Gruppe' }).click()
+  await dialog.getByRole('button', { name: /aussteigen/ }).click()
+  await srA.getByTestId('nav-text').waitFor()
+  await srA.getByRole('button', { name: 'Schließen' }).click()
+  await dialog.getByRole('button', { name: 'Andere Verbindung' }).click()
+  await srA.locator('#sheet-panic [data-act="emergency"]').click()
+  await dialog.getByRole('button', { name: "Mir geht's gut" }).click()
+  await dialog.waitFor({ state: 'detached' })
+  await control.getByText('Einzelmeldung · 2').waitFor({ state: 'detached', timeout: 3000 })
+  step('SafeRide Notfall: overlay with 110 + options, tap on control, navigation, escape sheet and back, "Mir geht\'s gut" ends it')
+  await srB.locator('#sheet-alerts [data-hdpanic]').click() // alerts sheet is open: Notfall sits in its header
+  await srB.getByRole('button', { name: 'Rückgängig' }).click()
+  await srB.getByRole('dialog', { name: 'Notfall' }).waitFor({ state: 'detached' })
+  await control.getByText('Einzelmeldung · 2').waitFor({ state: 'detached', timeout: 3000 })
+  step('Notfall "Rückgängig" withdraws the tap')
+
   await control.getByRole('button', { name: /Arena/ }).click()
+  await srB.locator('[data-tab="alerts"]').click()
   await srB.locator('[data-alert^="shared-me-"]').waitFor({ state: 'detached', timeout: 3000 })
   assert.equal(await control.locator('path.sr-report').count(), 0)
   step('scenario reset clears shared reports')

@@ -1429,6 +1429,13 @@ addEventListener('sr:crowds', e => {
 });
 
 // ---------- panic
+// Notfall = Way Out overlay (src/saferide/main.tsx): pin here, control room + options there. This sheet is the escape route.
+function startEmergency() {
+  closeSheet(); closeCard(); dropPin();
+  dispatchEvent(new CustomEvent('sr:emergency', { detail: { pin: !!myPosition() } }));
+}
+addEventListener('sr:escape', () => openSheet('panic'));
+addEventListener('sr:unpin', () => undoPin());
 let panicCache = { key: null, html: '' }, PANIC_ALT = null, pinUndo = null;
 function dropPin() {
   const p = myPosition(); if (!p) return;
@@ -1465,7 +1472,7 @@ function panicAltRoute() {
 function renderPanic() {
   const b = $('#panicBody'), m = Loc.match;
   if (!b.querySelector('#pnEscape')) b.innerHTML = `<a class="call" href="tel:110"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>110 anrufen</a>
-    <a class="btn primary block" data-wayout href="/${esc(location.search)}#/rider/wayout" style="margin:10px 0;text-decoration:none">Way Out – Leitstelle &amp; sicherer Ausstieg</a>
+    <button class="btn primary block" type="button" data-act="emergency" style="margin:10px 0">Zurück zum Notfall</button>
     <div id="pnPin"></div><div id="pnEscape"></div><p class="note">Bist du gerade in Gefahr, ruf die Polizei unter 110 an.</p>`;
   setHTML($('#pnPin'), pinUndo && pinUndo.until > Date.now() ? `<div class="banner" style="align-items:center">${ICON.pin.replace('<svg', '<svg width="18" height="18"')}<span style="margin-right:auto">Notfall-Pin für 15 Minuten hier gesetzt.</span><button class="txtbtn" type="button" data-act="unpin">Rückgängig</button></div>` : '');
   let html;
@@ -1617,7 +1624,7 @@ function bindUI() {
   document.addEventListener('click', e => {
     const t = e.target.closest('button, a'); if (!t) return;
     const d = t.dataset;
-    if (t.hasAttribute('data-hdpanic')) { closePicker(); openSheet('panic'); return; }
+    if (t.hasAttribute('data-hdpanic')) { closePicker(); startEmergency(); return; }
     if (d.view) { F.view = d.view; closeCard(); applyFilters(); return; }
     if (t.matches('.chip[data-mode]')) { F.modes[d.mode] = !F.modes[d.mode]; applyFilters(); return; }
     if (d.railmode) { const m = d.railmode; F.modes[m] = !F.modes[m]; applyFilters(); toast(`${MODE_LABEL[m]} auf der Karte ${F.modes[m] ? 'eingeblendet' : 'ausgeblendet'}.`, 1800); return; }
@@ -1644,6 +1651,7 @@ function bindUI() {
     if (d.act === 'dismisszone') { if (ROUTE.trip) { ROUTE.trip.dismissed.add(d.z); tripTick(); } return; }
     if (d.act === 'usealt') { if (PANIC_ALT && ROUTE.trip) { const dest = ROUTE.trip.dest; startTrip(PANIC_ALT, dest, 'safe'); panicCache.key = null; toast('Auf die sicherere Route gewechselt.'); } return; }
     if (d.act === 'unpin') { undoPin(); return; }
+    if (d.act === 'emergency') { closeSheet(); dispatchEvent(new CustomEvent('sr:emergency-open')); return; }
     if (d.act === 'focustoggle') { if (ROUTE.trip) { ROUTE.trip.focus = !ROUTE.trip.focus; applyFilters(); renderCond(); } return; }
     // route sheet
     if (d.rfield) { openPicker(d.rfield === 'from' ? 'Start' : 'Wohin?', sid => { if (sid === '__me') ROUTE.from = null; else if (d.rfield === 'from') ROUTE.from = { sid }; else ROUTE.to = sid; computeRoutes(); renderRouteSheet(); },
@@ -1690,7 +1698,7 @@ function bindUI() {
   $('#btnFilters').addEventListener('click', () => openSheet('filters'));
   $('#btnProfile').addEventListener('click', () => openSheet('profile'));
   $('#cond').addEventListener('click', () => openSheet('alerts'));
-  $('#btnPanic').addEventListener('click', () => openSheet('panic'));
+  $('#btnPanic').addEventListener('click', startEmergency);
   $('#btnTrack').addEventListener('click', () => openSheet('track'));
   $('#scrim').addEventListener('click', () => { if ($('#sheet-picker').classList.contains('open')) closePicker(); else closeSheet(); });
   $('#btnReset').addEventListener('click', () => { F = JSON.parse(JSON.stringify(FDEF)); $('#lineSearch').value = ''; renderSearch(''); applyFilters(); toast('Filter auf Basis zurückgesetzt.'); });

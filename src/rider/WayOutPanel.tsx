@@ -1,8 +1,33 @@
 // The Way Out part every rider view shares: control-room status, options, reasons, "Mir geht's gut".
 import type { ReactNode } from 'react'
+import { now } from '../clock'
 import { emptiestCar } from '../mock'
 import Navigate from './Navigate'
 import { REASONS, type Ride } from './useRide'
+
+const hhmm = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+
+// Line, direction and next stop. Also used as SafeRide's ride bar.
+export function RideBar({ ride, clock = false }: { ride: Ride; clock?: boolean }) {
+  const { pos, leg } = ride
+  if (!pos || !leg) return null
+  return (
+    <header className="rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-sm">
+      <div className="flex items-center gap-2 text-sm text-muted">
+        <span className="rounded bg-ink px-2 py-0.5 font-bold text-paper">{leg.line}</span>
+        <span>Richtung {leg.destination}</span>
+        {clock && <span className="ml-auto tabular-nums">{hhmm(now())}</span>}
+      </div>
+      <p className="m-0 mt-2 text-lg font-semibold">
+        {pos.state === 'train'
+          ? <>Nächster Halt <b>{pos.nextStop.name}</b> in {pos.etaMin} Min</>
+          : pos.etaMin > 0
+            ? <>Am Bahnsteig <b>{pos.nextStop.name}</b>, Abfahrt in {pos.etaMin} Min</>
+            : <>Angekommen: <b>{pos.nextStop.name}</b></>}
+      </p>
+    </header>
+  )
+}
 
 // Full-screen steps after an option was chosen (navigation, front car). null = show the panel.
 export function WayOutScreens({ ride, onExit }: { ride: Ride; onExit?: () => void }) {
