@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Action, Route, ScenarioId } from '../types'
+import type { Action, Crowd, Option, Route, ScenarioId } from '../types'
 import { connect } from '../realtime'
 import { isVirtual, now, onClock, setVirtual } from '../clock'
 import { where } from '../position'
 import { buildOptions } from '../options'
 import { getDepartures, getRoute, searchStations, type Departure, type StationHit } from '../mvg'
-import { SNAPSHOTS } from '../mock'
+import { emptiestCar, MOCK_CROWDS, SNAPSHOTS } from '../mock'
+import { bearing } from '../indoor'
+import { requestCompass } from '../compass'
+import Navigate, { type NavTarget } from './Navigate'
 
 const REASONS = ['Betrunkene Gruppe', 'Belästigung', 'Zu voll', 'Fühle mich verfolgt']
 
 type Screen = 'setup' | 'riding' | 'wayout' | 'closed'
-type Saved = { route: Route | null; scenario: ScenarioId | null; screen: Screen; reasons: string[]; virtual: number | null; feedback: Action | null }
+type Saved = { route: Route | null; scenario: ScenarioId | null; screen: Screen; reasons: string[]; virtual: number | null; feedback: Action | null; nav: NavTarget | null; frontCar: boolean }
 
 const store = {
   get<T>(k: string): T | null {
@@ -37,6 +40,10 @@ export default function Rider() {
   const [reasons, setReasons] = useState<string[]>(saved?.reasons ?? [])
   const [feedback, setFeedback] = useState<Action | null>(saved?.feedback ?? null)
   const [departures, setDepartures] = useState<Departure[] | null>(null)
+  const [nav, setNav] = useState<NavTarget | null>(saved?.nav ?? null)
+  const [frontCar, setFrontCar] = useState(saved?.frontCar ?? false)
+  const [showFront, setShowFront] = useState(false)
+  const [liveCrowds, setLiveCrowds] = useState<Crowd[]>([])
   const [, tick] = useState(0)
 
   const pos = route ? where(route, now()) : null
@@ -49,7 +56,7 @@ export default function Rider() {
   }, [])
 
   useEffect(() => {
-    store.set('wayout.state', { route, scenario, screen, reasons, virtual: isVirtual() ? now() : null, feedback } satisfies Saved)
+    store.set('wayout.state', { route, scenario, screen, reasons, virtual: isVirtual() ? now() : null, feedback, nav, frontCar } satisfies Saved)
   })
 
   // Realtime wiring. Refs keep handlers current without resubscribing.
@@ -66,7 +73,7 @@ export default function Rider() {
         setVirtual(d.virtualNow)
         if (d.to && sameTrain) return // catch-up reply: keep our screen
         if (!d.reset && sameTrain) return // time jump only
-        setRoute(d.route); setScenario(d.scenario); setScreen('riding'); setReasons([]); setFeedback(null)
+        setRoute(d.route); setScenario(d.scenario); setScreen('riding'); setReasons([]); setFeedback(null); setNav(null); setFrontCar(false)
       }),
       rt.on('action', (a) => {
         const s = state.current
@@ -74,6 +81,7 @@ export default function Rider() {
         const mine = 'sessionId' in a.target ? a.target.sessionId === sessionId : a.target.trainKey === s.pos.trainKey
         if (mine) setFeedback(a)
       }),
+      rt.on('crowds', (c) => setLiveCrowds(c.crowds)),
     ]
     hello()
     const vis = () => document.visibilityState === 'visible' && hello()
@@ -105,14 +113,41 @@ export default function Rider() {
     const next = reasons.includes(r) ? reasons.filter((x) => x !== r) : [...reasons, r]
     setReasons(next); sendTap(next)
   }
-  const fine = () => { rt.send('fine', { sessionId }); setScreen('closed') }
+  const fine = () => { rt.send('fine', { sessionId }); setScreen('closed'); setNav(null) }
+  const choose = (o: Option) => {
+    if (o.target === 'frontCar') { setFrontCar(true); setShowFront(true); return }
+    if (!o.target) return
+    requestCompass() // iOS only asks inside a tap
+    setNav(o.target)
+  }
 
   if (screen === 'setup' || !route || !pos) {
     return <TripSetup onRoute={(r) => { setVirtual(null); setScenario(null); setRoute(r); setScreen('riding') }} />
   }
 
   const leg = route.legs[pos.leg]
-  const options = buildOptions(pos, route, departures, scenario ? SNAPSHOTS[scenario].nextTrainMin : 10)
+  const nextTrainMin = scenario ? SNAPSHOTS[scenario].nextTrainMin : 10
+  const options = buildOptions(pos, route, departures, nextTrainMin)
+  // Direction of travel at the station: arriving train (on board) or departing train (on the platform).
+  const st = pos.nextStop, stops = leg.stops, k = stops.findIndex((x) => x.id === st.id)
+  const travelBearing = pos.prevStop ? bearing([pos.prevStop.lat, pos.prevStop.lng], [st.lat, st.lng])
+    : stops[k + 1] ? bearing([st.lat, st.lng], [stops[k + 1].lat, stops[k + 1].lng]) : null
+  const crowds = [...(MOCK_CROWDS[st.id] ?? []), ...liveCrowds]
+
+  if (screen === 'wayout' && nav) {
+    return <Navigate stop={st} target={nav} travelBearing={travelBearing} frontCar={frontCar} reasons={reasons} crowds={crowds}
+      nextTrainMin={nextTrainMin} feedback={feedback} onClose={() => setNav(null)} />
+  }
+  if (screen === 'wayout' && showFront) {
+    return (
+      <main onClick={() => setShowFront(false)} className="fixed inset-0 flex flex-col items-center justify-center gap-6 bg-violet-700 p-6 text-center text-white">
+        <svg viewBox="0 0 100 100" className="h-44 w-44" aria-hidden><path d="M50 6 L86 50 H62 V94 H38 V50 H14 Z" fill="white" /></svg>
+        <p className="text-2xl font-bold">Geh im Zug in Fahrtrichtung nach vorne in den {emptiestCar(leg.line)} Wagen.</p>
+        <p className="text-white/80">Beim Aussteigen starten wir den Weg dann vom vorderen Bahnsteigende.</p>
+        <button className="min-h-12 rounded-full bg-white px-6 font-bold text-violet-800">Fertig</button>
+      </main>
+    )
+  }
 
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col gap-4 p-4 pb-8">
@@ -155,10 +190,11 @@ export default function Rider() {
           )}
           <section className="flex flex-col gap-3">
             {options.map((o) => (
-              <div key={o.kind} className="rounded-2xl bg-slate-800 p-4">
-                <p className="text-lg font-bold">{o.title}</p>
+              <button key={o.kind} onClick={() => choose(o)} disabled={!o.target}
+                className="rounded-2xl bg-slate-800 p-4 text-left enabled:active:scale-[0.98] enabled:hover:bg-slate-700">
+                <p className="text-lg font-bold">{o.title}{o.target && <span className="float-right text-violet-400">→</span>}</p>
                 <p className="mt-1 text-slate-300">{o.detail}</p>
-              </div>
+              </button>
             ))}
           </section>
           <section>

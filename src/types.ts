@@ -40,7 +40,7 @@ export type Position = {
 export type ScenarioId = 'arena' | 'garching'
 
 export type OptionKind = 'stepOut' | 'move' | 'security' | 'nextTrain'
-export type Option = { kind: OptionKind; title: string; detail: string }
+export type Option = { kind: OptionKind; title: string; detail: string; target?: 'wait' | 'security' | 'emergency' | 'frontCar' }
 
 // rider -> control. Re-sent with the same sessionId whenever reasons change.
 export type Tap = {
@@ -94,5 +94,6 @@ export type Events = {
   action: Action
   demo: DemoPayload
   hello: { sessionId: string; trainKey: string | null }
+  crowds: { crowds: Crowd[] } // control -> riders: reported groups for the rider's map and exit choice
 }
 export type EventName = keyof Events

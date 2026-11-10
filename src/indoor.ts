@@ -139,7 +139,7 @@ export function toSteps(g: Graph, p: Path, travelBearing: number | null, arriveT
   const rel = (b: number, len: number, what: string) => {
     if (travelBearing === null) return `Steig aus und geh ${what}, ${round10(len)} m`
     const d = Math.abs(turn(travelBearing, b))
-    const dir = d < 60 ? 'in Fahrtrichtung nach vorne' : d > 120 ? 'entgegen der Fahrtrichtung' : 'zur Bahnsteigmitte'
+    const dir = d < 60 ? 'in Fahrtrichtung nach vorne' : d > 120 ? 'entgegen der Fahrtrichtung' : 'quer über den Bahnsteig'
     return `Steig aus und geh ${dir}${what ? ` ${what}` : ''}, ${round10(len)} m`
   }
   // The platform itself is often only an area in OSM: walk from where you stand to the first graph node.
