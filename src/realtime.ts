@@ -9,6 +9,9 @@ type Handler = (event: EventName, payload: Envelope<EventName>) => void
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 export const transport = url && key ? 'supabase' : 'local'
+// Optional ?room=x (before the #) gives a separate channel, e.g. for tests or a second team.
+const room = new URLSearchParams(location.search).get('room')
+const topic = room ? `wayout-${room.replace(/[^\w-]/g, '')}` : 'wayout'
 
 const handlers = new Set<Handler>()
 const deliver = (event: EventName, payload: Envelope<EventName>) => handlers.forEach((h) => h(event, payload))
@@ -22,7 +25,7 @@ if (transport === 'supabase') {
   const queue: [EventName, object][] = []
   const subscribe = () => {
     ready = false
-    channel = client.channel('wayout', { config: { broadcast: { self: false } } })
+    channel = client.channel(topic, { config: { broadcast: { self: false } } })
     for (const e of ['tap', 'fine', 'action', 'demo', 'hello'] as EventName[]) {
       channel.on('broadcast', { event: e }, (m) => deliver(e, m.payload as Envelope<EventName>))
     }
@@ -45,7 +48,7 @@ if (transport === 'supabase') {
     void client.removeChannel(channel).then(subscribe)
   })
 } else {
-  const bc = new BroadcastChannel('wayout')
+  const bc = new BroadcastChannel(topic)
   bc.onmessage = (m) => deliver(m.data.event, m.data.payload)
   sendRaw = (event, payload) => bc.postMessage({ event, payload })
 }

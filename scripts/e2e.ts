@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { chromium, type Page } from 'playwright-core'
 
 const BASE = process.argv[2] ?? 'http://localhost:5173'
+const ROOM = `e2e-${Date.now()}` // own channel, so a running demo never sees test traffic
 const browser = await chromium.launch({ channel: 'chrome', headless: !process.env.HEADED })
 // SEPARATE=1: every page gets its own browser profile, like separate phones (needs Supabase).
 const shared = process.env.SEPARATE ? null : await browser.newContext()
@@ -13,7 +14,7 @@ const open = async (hash: string, mobile = false) => {
   const p = await (shared ?? (await browser.newContext())).newPage()
   if (mobile) await p.setViewportSize({ width: 390, height: 844 })
   p.on('pageerror', (e) => errors.push(`${hash}: ${e.message}`))
-  await p.goto(`${BASE}/${hash}`)
+  await p.goto(`${BASE}/?room=${ROOM}${hash}`)
   return p
 }
 const step = (s: string) => console.log(`✓ ${s}`)
@@ -105,7 +106,7 @@ try {
     await r.getByRole('button', { name: 'Way Out' }).click()
     await r.getByRole('button', { name: 'Fühle mich verfolgt' }).click()
     const opts = (await r.locator('section > div p.font-bold').allInnerTexts()).join(' / ')
-    const line = header.match(/^(\S+)/)![1]
+    const line = await r.locator('header span').first().innerText()
     await control.locator('article', { hasText: line }).filter({ hasText: 'Fühle mich verfolgt' }).first().waitFor({ timeout: 2000 })
     step(`real trip ${from} -> ${to}: "${header}" | option: "${opts}" | card on control`)
     await r.close()
