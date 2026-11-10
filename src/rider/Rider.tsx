@@ -109,6 +109,15 @@ export default function Rider() {
   }
 
   const wayOut = () => { setReasons([]); setFeedback(null); setScreen('wayout'); sendTap([]) }
+
+  // Opened from SafeRide's emergency sheet (#/rider/wayout): go straight to the options once a ride is known.
+  const autoWayOut = useRef(location.hash === '#/rider/wayout')
+  useEffect(() => {
+    if (!autoWayOut.current || screen !== 'riding' || !pos) return
+    autoWayOut.current = false
+    history.replaceState(null, '', '#/rider')
+    wayOut()
+  })
   const toggle = (r: string) => {
     const next = reasons.includes(r) ? reasons.filter((x) => x !== r) : [...reasons, r]
     setReasons(next); sendTap(next)

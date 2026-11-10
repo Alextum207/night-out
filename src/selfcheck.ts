@@ -124,4 +124,15 @@ import { MOCK_CROWDS } from './mock'
   assert.deepEqual(st.map((s) => s.kind), ['straight', 'right', 'arrive'])
 }
 
+// --- SafeRide reports -> crowds (issue #19) ---
+import { reportCrowds } from './hotspots'
+import type { Report } from './types'
+{
+  const r = (id: string, o: Partial<Report>): Report => ({ id, sessionId: 's', lat: 48, lng: 11, size: 'small', intensity: 'loud', panic: false, title: id, from: 0, to: 100, ...o })
+  const c = reportCrowds([r('loud', {}), r('agg', { intensity: 'aggressive' }), r('har', { intensity: 'harassing' }), r('pin', { panic: true, size: null, intensity: null }),
+    r('old', { to: 50 }), r('undo', { to: 60 })], 60)
+  assert.deepEqual(c.map((x) => [x.id, x.kind]), [['loud', 'busy'], ['agg', 'unsafe'], ['har', 'unsafe'], ['pin', 'unsafe']]) // expired + undone dropped
+  assert.deepEqual([c[0].from, c[0].to], [0, 100]) // real report times reach the other phones
+}
+
 console.log('selfcheck ok')

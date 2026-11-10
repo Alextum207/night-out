@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
-import type { Action, ActionKind, Crowd, DemoPayload, Hotspot, Route, ScenarioId, Tap } from '../types'
+import type { Action, ActionKind, Crowd, DemoPayload, Hotspot, Report, Route, ScenarioId, Tap } from '../types'
 import { connect, transport } from '../realtime'
 import { isVirtual, now, onClock, setVirtual } from '../clock'
-import { groupTaps } from '../hotspots'
+import { groupTaps, reportCrowds } from '../hotspots'
 import { where } from '../position'
 import { directions, EVENTS, nearestTeam, SECURITY_TEAMS, SNAPSHOTS } from '../mock'
 
@@ -51,6 +51,7 @@ function FitRoute({ route }: { route: Route }) {
 
 export default function Control() {
   const [taps, setTaps] = useState(() => new Map<string, Tap>())
+  const [reports, setReports] = useState(() => new Map<string, Report>()) // SafeRide, real time
   const [demo, setDemo] = useState<DemoPayload | null>(null)
   const [sent, setSent] = useState<Record<string, ActionKind[]>>({}) // per trainKey
   const [resolvedAt, setResolvedAt] = useState<Record<string, number>>({})
@@ -65,6 +66,7 @@ export default function Control() {
   useEffect(() => {
     const offs = [
       rt.on('tap', (t) => setTaps((m) => new Map(m).set(t.sessionId, t))),
+      rt.on('report', (r) => setReports((m) => new Map(m).set(r.id, r))),
       rt.on('fine', ({ sessionId }) => setTaps((m) => { const n = new Map(m); n.delete(sessionId); return n })),
       rt.on('hello', ({ sessionId, trainKey }) => {
         const d = demoRef.current
@@ -87,7 +89,8 @@ export default function Control() {
   const { hotspots, singles } = groupTaps(taps, t)
   const cards = [...hotspots, ...singles]
   const isResolved = (c: Hotspot) => (resolvedAt[c.trainKey] ?? -1) >= c.lastAt
-  const crowds = toCrowds(cards.filter((c) => !isResolved(c)))
+  const liveReports = reportCrowds(reports.values(), Date.now())
+  const crowds = [...toCrowds(cards.filter((c) => !isResolved(c))), ...liveReports]
   const crowdsKey = JSON.stringify(crowds)
   const crowdsRef = useRef(crowds)
   crowdsRef.current = crowds
@@ -105,13 +108,13 @@ export default function Control() {
     const s = SNAPSHOTS[scenario]
     const d: DemoPayload = { scenario, route: s.route, virtualNow: s.virtualNow, reset: true }
     setVirtual(s.virtualNow)
-    setTaps(new Map()); setSent({}); setResolvedAt({}); lastAction.current.clear()
+    setTaps(new Map()); setReports(new Map()); setSent({}); setResolvedAt({}); lastAction.current.clear()
     setDemo(d)
     rt.send('demo', d)
   }
   const endScenario = () => {
     setDemo(null); setVirtual(null)
-    setTaps(new Map()); setSent({}); setResolvedAt({}); lastAction.current.clear()
+    setTaps(new Map()); setReports(new Map()); setSent({}); setResolvedAt({}); lastAction.current.clear()
   }
   const jump = (min: number) => {
     if (!demo) return
@@ -159,10 +162,21 @@ export default function Control() {
                 <Tooltip>{s.name}</Tooltip>
               </CircleMarker>
             ))}
+            {/* className as a prop: react-leaflet applies pathOptions via setStyle, which ignores className */}
             {[...taps.values()].map((tp) => (
               <CircleMarker key={tp.sessionId} center={[tp.lat, tp.lng]} radius={9}
-                pathOptions={{ color: '#f43f5e', fillColor: '#f43f5e', fillOpacity: 0.8, weight: 2, className: 'pulse' }} />
+                pathOptions={{ color: '#f43f5e', fillColor: '#f43f5e', fillOpacity: 0.8, weight: 2 }} className="pulse" />
             ))}
+            {liveReports.map((c) => {
+              const r = reports.get(c.id!)!
+              const col = c.kind === 'unsafe' ? '#ef4444' : '#f59e0b'
+              return (
+                <CircleMarker key={c.id} center={[c.lat, c.lng]} radius={r.panic ? 8 : 11}
+                  pathOptions={{ color: '#fff', fillColor: col, fillOpacity: 0.85, weight: 2, dashArray: r.panic ? undefined : '3 3' }} className="sr-report">
+                  <Tooltip>{r.panic ? 'Notfall-Pin' : 'SafeRide-Meldung'}: {r.title} · vor {Math.max(0, Math.round((Date.now() - r.from) / 60_000))} Min</Tooltip>
+                </CircleMarker>
+              )
+            })}
           </MapContainer>
           {luna && (
             <iframe src="#/rider" title="Luna" className="absolute bottom-3 left-3 z-[1000] h-[720px] max-h-[85%] w-[375px] rounded-3xl border-4 border-slate-700 bg-slate-950 shadow-2xl" />
