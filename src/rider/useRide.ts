@@ -128,6 +128,11 @@ export function useRide({ persist }: { persist: boolean }) {
       if (!force && scenario) return
       setVirtual(null); setScenario(null); setRoute(r); setScreen(r ? 'riding' : 'setup')
     },
+    // Play a scenario on this phone alone (no control room needed), e.g. when nobody started one in the demo panel.
+    startDemo(id: ScenarioId) {
+      const s = SNAPSHOTS[id]
+      setVirtual(s.virtualNow); setRoute(s.route); setScenario(id); setScreen('riding'); setReasons([]); setFeedback(null); setNav(null); setFrontCar(false)
+    },
     wayOut() { setReasons([]); setFeedback(null); setNav(null); setFrontCar(false); setScreen('wayout'); sendTap([]) },
     toggle(r: string) {
       const next = reasons.includes(r) ? reasons.filter((x) => x !== r) : [...reasons, r]
