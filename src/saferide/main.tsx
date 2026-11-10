@@ -139,7 +139,17 @@ function Emergency({ ride, undo, onUndo, onEnd, onEscape }: { ride: Ride; undo: 
             <p className="m-0 rounded-2xl border border-dashed border-hairline p-3 text-muted">
               Ohne laufende Fahrt kennt die Leitstelle deinen Zug nicht. Geh dorthin, wo Menschen und Licht sind, und ruf 110 an, wenn du dich bedroht fühlst.
             </p>
-            <section className="flex flex-col gap-3">{escape}</section>
+            <section className="flex flex-col gap-3">
+              {escape}
+              <p className="m-0 mt-2 text-sm text-muted">Demo ohne Leitstellen-Szenario:</p>
+              {([['arena', 'Demo: U6 vor Münchner Freiheit', 'Volle U6 nach dem Spiel, Ausstieg mit Pfeil und Bahnhofsplan.'],
+                ['garching', 'Demo: Bahnsteig Garching-Forschungszentrum', 'Nachts allein am Bahnsteig, Weg zum Notrufpunkt.']] as const).map(([id, title, detail]) => (
+                <button key={id} onClick={() => ride.startDemo(id)} className="rounded-2xl border border-dashed border-hairline bg-surface-2 p-4 text-left text-ink active:scale-[0.98]">
+                  <p className="m-0 text-lg font-bold">{title}<span className="float-right">→</span></p>
+                  <p className="m-0 mt-1 text-muted">{detail}</p>
+                </button>
+              ))}
+            </section>
             <button onClick={onEnd} className="min-h-14 rounded-full border-0 bg-ink text-lg font-bold text-paper">Mir geht's gut</button>
           </>
         )}

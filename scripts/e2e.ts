@@ -216,6 +216,22 @@ try {
 
   // --- Real trips (free mode, live MVG API) ---
   await control.getByRole('button', { name: /Szenario beenden/ }).click()
+  { // No scenario running: Notfall offers a local demo, arrow + station plan still come up; buttons stay readable
+    const sr = await open('', true, '/saferide.html')
+    await sr.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
+    await sr.locator('#btnPanic').click()
+    const d = sr.getByRole('dialog', { name: 'Notfall' })
+    await d.getByRole('button', { name: /Demo: U6 vor Münchner Freiheit/ }).click()
+    await d.getByRole('button', { name: /aussteigen/ }).click()
+    await sr.getByTestId('nav-text').waitFor()
+    const readable = (l: ReturnType<Page['locator']>) => l.evaluate((el) => { const c = getComputedStyle(el); return c.color !== c.backgroundColor })
+    assert.ok(await readable(sr.getByRole('button', { name: 'Lieber raus auf die Straße' })), '"Lieber raus" text invisible')
+    await sr.getByRole('button', { name: 'Schließen' }).click()
+    assert.ok(await readable(d.getByRole('button', { name: "Mir geht's gut" })), "Mir geht's gut: text invisible")
+    await d.getByRole('button', { name: "Mir geht's gut" }).click()
+    step('no scenario: Notfall -> local demo Münchner Freiheit -> arrow + station plan; buttons readable')
+    await sr.close()
+  }
   { // A SafeRide trip becomes the Way Out train (issue #25)
     const sr = await open('', true, '/saferide.html')
     await sr.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
