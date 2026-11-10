@@ -50,8 +50,8 @@ try {
 
   await control.getByRole('button', { name: /Security → Münchner Freiheit/ }).click()
   for (const r of riders) await r.getByText('Security wartet an Münchner Freiheit').waitFor({ timeout: 2000 })
-  assert.ok(await riders[0].getByText('Rolltreppe hoch').isVisible())
-  step('operator action reaches all 3 riders with walking steps')
+  assert.ok(await riders[0].getByRole('button', { name: 'Weg zeigen' }).isVisible())
+  step('operator action reaches all 3 riders, with "Weg zeigen" into the navigation')
 
   // A phone that missed the action (stored feedback wiped) reloads and catches up via hello.
   await riders[2].evaluate(() => {
@@ -102,7 +102,7 @@ try {
     for (let n = 0; n < 20; n++) {
       const t = await r.getByTestId('nav-text').innerText()
       texts.push(t)
-      if (await r.locator('section.bg-emerald-600').count()) break
+      if (await r.locator('section[data-done="true"]').count()) break
       await r.locator('section').first().click({ position: { x: 30, y: 200 } })
     }
     return texts
@@ -221,7 +221,7 @@ try {
     await sr.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
     await sr.locator('#btnPanic').click()
     const d = sr.getByRole('dialog', { name: 'Notfall' })
-    await d.getByRole('button', { name: /Demo: U6 vor Münchner Freiheit/ }).click()
+    await d.getByRole('button', { name: 'U6 vor Münchner Freiheit' }).click()
     await d.getByRole('button', { name: /aussteigen/ }).click()
     await sr.getByTestId('nav-text').waitFor()
     const readable = (l: ReturnType<Page['locator']>) => l.evaluate((el) => { const c = getComputedStyle(el); return c.color !== c.backgroundColor })
@@ -246,7 +246,7 @@ try {
     await sr.locator('#btnPanic').click()
     const d = sr.getByRole('dialog', { name: 'Notfall' })
     await d.getByText(/Richtung/).first().waitFor({ timeout: 8000 })
-    const line = await d.locator('header span').first().innerText()
+    const line = await d.getByTestId('ride-line').innerText()
     await control.locator('article', { hasText: line }).first().waitFor({ timeout: 3000 })
     await d.getByRole('button', { name: "Mir geht's gut" }).click()
     step(`SafeRide trip Marienplatz -> Münchner Freiheit = Way Out train ${line}, Notfall reaches the control room`)
@@ -265,7 +265,7 @@ try {
     const header = (await r.locator('header').innerText()).replace(/\s+/g, ' ')
     await r.getByRole('button', { name: 'Way Out' }).click()
     await r.getByRole('button', { name: 'Fühle mich verfolgt' }).click()
-    const opts = (await r.locator('section > button p.font-bold').allInnerTexts()).join(' / ')
+    const opts = (await r.getByTestId('option').allInnerTexts()).map((t) => t.split(String.fromCharCode(10))[0]).join(' / ')
     const line = await r.locator('header span').first().innerText()
     await control.locator('article', { hasText: line }).filter({ hasText: 'Fühle mich verfolgt' }).first().waitFor({ timeout: 2000 })
     step(`real trip ${from} -> ${to}: "${header}" | option: "${opts}" | card on control`)

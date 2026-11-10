@@ -1,28 +1,20 @@
-/* Rider navigation map (Way Out): shared by #/rider and the SafeRide emergency overlay. */
-/* Street tiles follow the SafeRide theme: plain by day, inverted in dark mode. */
-:root[data-mode="dark"] .nav-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9); }
-.poi {
+/* Rider navigation map (Way Out): shared by #/rider and the SafeRide emergency overlay.
+   Deliberately sparse: you, the destination, reported groups (and Security when it is the destination). */
+.nav-dot {
   transform: translate(-50%, -50%);
-  white-space: nowrap;
-  border-radius: 9999px;
-  padding: 2px 8px;
-  font: 600 12px/1.4 system-ui, sans-serif;
-  color: white;
-  background: #334155;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+  width: 14px; height: 14px; border-radius: 9999px;
+  border: 3px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
 }
-.poi-step { background: #6d28d9; }
-.poi-level { background: #0f172a; border-color: #a78bfa; color: #ddd6fe; }
-.poi-police { background: #1d4ed8; }
-.poi-security { background: #0369a1; }
-.poi-unsafe { background: #dc2626; }
-.poi-busy { background: #b45309; }
-.poi-goal { background: #059669; }
+.nav-dot-goal { width: 20px; height: 20px; background: #1f8a57; }
+.nav-dot-unsafe { background: #d21f3c; }
+.nav-dot-busy { background: #e08a00; }
+.nav-dot-security { background: #2e6be6; }
 .me-dot {
   width: 18px; height: 18px; transform: translate(-50%, -50%);
-  border-radius: 9999px; background: white; border: 4px solid #7c3aed;
-  box-shadow: 0 0 0 6px rgb(124 58 237 / 0.35);
+  border-radius: 9999px; background: white; border: 4px solid #6d4aff;
+  box-shadow: 0 0 0 6px rgb(109 74 255 / 0.25);
 }
 @keyframes pulse-line { 50% { stroke-opacity: 0.45; } }
 .pulse-line { animation: pulse-line 1.2s ease-in-out infinite; }
+.nav-map .leaflet-control-attribution { font: 10px/1.4 system-ui, sans-serif; background: rgb(255 255 255 / 0.6); padding: 0 4px; }
+.nav-map .leaflet-control-attribution a { color: inherit; }
