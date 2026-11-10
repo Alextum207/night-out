@@ -8,10 +8,16 @@ const BASE = process.argv[2] ?? 'http://localhost:5173'
 const ROOM = `e2e-${Date.now()}` // own channel, so a running demo never sees test traffic
 const browser = await chromium.launch({ channel: 'chrome', headless: !process.env.HEADED })
 // SEPARATE=1: every page gets its own browser profile, like separate phones (needs Supabase).
-const shared = process.env.SEPARATE ? null : await browser.newContext()
+// Protected Vercel previews: VERCEL_OIDC_TOKEN (vc env run) goes only to the deployment's own origin.
+const newContext = async () => {
+  const c = await browser.newContext(), token = process.env.VERCEL_OIDC_TOKEN
+  if (token) await c.route(`${new URL(BASE).origin}/**`, (r) => r.continue({ headers: { ...r.request().headers(), 'x-vercel-trusted-oidc-idp-token': token } }))
+  return c
+}
+const shared = process.env.SEPARATE ? null : await newContext()
 const errors: string[] = []
 const open = async (hash: string, mobile = false, page = '/') => {
-  const p = await (shared ?? (await browser.newContext())).newPage()
+  const p = await (shared ?? (await newContext())).newPage()
   if (mobile) await p.setViewportSize({ width: 390, height: 844 })
   p.on('pageerror', (e) => errors.push(`${page}${hash}: ${e.message}`))
   await p.goto(`${BASE}${page}?room=${ROOM}${hash}`)

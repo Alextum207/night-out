@@ -162,16 +162,17 @@ export default function Control() {
                 <Tooltip>{s.name}</Tooltip>
               </CircleMarker>
             ))}
+            {/* className as a prop: react-leaflet applies pathOptions via setStyle, which ignores className */}
             {[...taps.values()].map((tp) => (
               <CircleMarker key={tp.sessionId} center={[tp.lat, tp.lng]} radius={9}
-                pathOptions={{ color: '#f43f5e', fillColor: '#f43f5e', fillOpacity: 0.8, weight: 2, className: 'pulse' }} />
+                pathOptions={{ color: '#f43f5e', fillColor: '#f43f5e', fillOpacity: 0.8, weight: 2 }} className="pulse" />
             ))}
             {liveReports.map((c) => {
               const r = reports.get(c.id!)!
               const col = c.kind === 'unsafe' ? '#ef4444' : '#f59e0b'
               return (
                 <CircleMarker key={c.id} center={[c.lat, c.lng]} radius={r.panic ? 8 : 11}
-                  pathOptions={{ color: '#fff', fillColor: col, fillOpacity: 0.85, weight: 2, dashArray: r.panic ? undefined : '3 3', className: 'sr-report' }}>
+                  pathOptions={{ color: '#fff', fillColor: col, fillOpacity: 0.85, weight: 2, dashArray: r.panic ? undefined : '3 3' }} className="sr-report">
                   <Tooltip>{r.panic ? 'Notfall-Pin' : 'SafeRide-Meldung'}: {r.title} · vor {Math.max(0, Math.round((Date.now() - r.from) / 60_000))} Min</Tooltip>
                 </CircleMarker>
               )
