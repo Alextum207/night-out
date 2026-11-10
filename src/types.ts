@@ -17,7 +17,7 @@ export type Stop = {
 // id/from/to only for SafeRide reports (real time, epoch ms).
 export type Crowd = { lat: number; lng: number; kind: 'busy' | 'unsafe'; label: string; id?: string; from?: number; to?: number }
 
-// SafeRide report (group or panic pin), real time. Undo = same id with to <= now.
+// SafeRide report (category, free text or panic pin), real time. Undo = same id with to <= now.
 export type Report = {
   id: string
   sessionId: string
@@ -25,6 +25,8 @@ export type Report = {
   lng: number
   size: 'small' | 'medium' | 'large' | null
   intensity: 'loud' | 'aggressive' | 'harassing' | null
+  category?: string | null // SafeRide report category (REPORT_CATEGORIES in hotspots.ts), 'other' = free text
+  text?: string | null // free text from the rider
   panic: boolean
   title: string
   from: number

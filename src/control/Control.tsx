@@ -3,11 +3,14 @@ import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from
 import type { Action, ActionKind, Crowd, DemoPayload, Hotspot, Report, Route, ScenarioId, Tap } from '../types'
 import { connect, transport } from '../realtime'
 import { isVirtual, now, onClock, setVirtual } from '../clock'
-import { groupTaps, reportCrowds } from '../hotspots'
+import { activeReports, groupTaps, REPORT_CATEGORIES, reportCrowds, reportKind } from '../hotspots'
 import { where } from '../position'
 import { directions, EVENTS, nearestTeam, SECURITY_TEAMS, SNAPSHOTS } from '../mock'
 
 const hhmm = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+const REPORT_COLOR = { unsafe: '#ef4444', busy: '#f59e0b', info: '#94a3b8' }
+const reportLabel = (r: Report) => r.panic ? r.title : r.category ? REPORT_CATEGORIES[r.category]?.label ?? r.title : r.title
+const minsAgo = (from: number) => Math.max(0, Math.round((Date.now() - from) / 60_000))
 
 // Reported groups go to the riders' maps. Drunk groups / harassment are never a safe crowd.
 const toCrowds = (cards: Hotspot[]): Crowd[] => cards.map((c) => ({
@@ -90,6 +93,7 @@ export default function Control() {
   const cards = [...hotspots, ...singles]
   const isResolved = (c: Hotspot) => (resolvedAt[c.trainKey] ?? -1) >= c.lastAt
   const liveReports = reportCrowds(reports.values(), Date.now())
+  const openReports = activeReports(reports.values(), Date.now()).sort((a, b) => b.from - a.from)
   const crowds = [...toCrowds(cards.filter((c) => !isResolved(c))), ...liveReports]
   const crowdsKey = JSON.stringify(crowds)
   const crowdsRef = useRef(crowds)
@@ -167,16 +171,12 @@ export default function Control() {
               <CircleMarker key={tp.sessionId} center={[tp.lat, tp.lng]} radius={9}
                 pathOptions={{ color: '#f43f5e', fillColor: '#f43f5e', fillOpacity: 0.8, weight: 2 }} className="pulse" />
             ))}
-            {liveReports.map((c) => {
-              const r = reports.get(c.id!)!
-              const col = c.kind === 'unsafe' ? '#ef4444' : '#f59e0b'
-              return (
-                <CircleMarker key={c.id} center={[c.lat, c.lng]} radius={r.panic ? 8 : 11}
-                  pathOptions={{ color: '#fff', fillColor: col, fillOpacity: 0.85, weight: 2, dashArray: r.panic ? undefined : '3 3' }} className="sr-report">
-                  <Tooltip>{r.panic ? 'Notfall-Pin' : 'SafeRide-Meldung'}: {r.title} · vor {Math.max(0, Math.round((Date.now() - r.from) / 60_000))} Min</Tooltip>
-                </CircleMarker>
-              )
-            })}
+            {openReports.map((r) => (
+              <CircleMarker key={r.id} center={[r.lat, r.lng]} radius={r.panic ? 8 : 11}
+                pathOptions={{ color: '#fff', fillColor: REPORT_COLOR[reportKind(r)], fillOpacity: 0.85, weight: 2, dashArray: r.panic ? undefined : '3 3' }} className="sr-report">
+                <Tooltip>{r.panic ? 'Notfall-Pin' : 'SafeRide-Meldung'}: {reportLabel(r)}{r.text ? ` – „${r.text}“` : ''} · vor {minsAgo(r.from)} Min</Tooltip>
+              </CircleMarker>
+            ))}
           </MapContainer>
           {luna && (
             <iframe src={`saferide.html${location.search}`} title="Luna" className="absolute bottom-3 left-3 z-[1000] h-[720px] max-h-[85%] w-[375px] rounded-3xl border-4 border-slate-700 bg-slate-950 shadow-2xl" />
@@ -212,6 +212,19 @@ export default function Control() {
               </article>
             )
           })}
+
+          <h2 className="mt-4 text-sm font-semibold uppercase tracking-wide text-slate-400">SafeRide-Meldungen</h2>
+          {openReports.length === 0 && <p className="text-slate-500">Keine Meldungen von Fahrgästen.</p>}
+          {openReports.map((r) => (
+            <article key={r.id} data-testid="sr-report" className="rounded-xl border-l-4 bg-slate-800 p-3" style={{ borderColor: REPORT_COLOR[reportKind(r)] }}>
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold">{reportLabel(r)}</span>
+                <span className="ml-auto text-xs text-slate-400">{hhmm(r.from)}</span>
+              </div>
+              {r.text && <p className="mt-1 text-sm text-slate-200">„{r.text}“</p>}
+              <p className="text-xs text-slate-400">{r.panic ? 'Notfall-Pin' : reportKind(r) === 'info' ? 'Hinweis, keine Gefahr' : reportKind(r) === 'unsafe' ? 'Gefahr: sichere Routen meiden die Stelle' : 'Andrang'} · vor {minsAgo(r.from)} Min</p>
+            </article>
+          ))}
 
           <h2 className="mt-4 text-sm font-semibold uppercase tracking-wide text-slate-400">Events heute</h2>
           {EVENTS.map((e) => (

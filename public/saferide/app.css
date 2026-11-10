@@ -30,38 +30,21 @@ svg.i { width: 22px; height: 22px; flex: none; }
 .iconbtn { width: 44px; height: 44px; border-radius: 13px; border: 0; background: var(--surface-2); display: grid; place-items: center; position: relative; flex: none; }
 .iconbtn .dot { position: absolute; top: 8px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--ink); border: 2px solid var(--surface-2); display: none; }
 .iconbtn.has-dot .dot { display: block; }
-.avatar { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--ink); color: var(--paper); display: grid; place-items: center; flex: none; }
-.avatar svg { width: 22px; height: 22px; }
 
-.cond { pointer-events: auto; display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px 0 10px; border-radius: 999px;
-  border: 1px solid var(--hairline); background: var(--surface); background: color-mix(in srgb, var(--surface) 94%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-  box-shadow: 0 1px 3px rgba(0,0,0,.1); font-weight: 600; font-size: 14.5px; max-width: 100%; }
-.cond .sep { width: 1px; height: 18px; background: var(--hairline); }
-.cond .w { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.cond .a { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.cond .a .n { min-width: 22px; height: 22px; border-radius: 11px; background: var(--warn); color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center; padding: 0 6px; }
-.cond .a .n.hot { background: var(--danger); }
 
 /* ---------- bottom actions ---------- */
 .actions { position: absolute; right: 14px; bottom: calc(var(--tab-h) + var(--sa-b) + 16px + var(--card-h, 0px)); z-index: 10;
   display: flex; flex-direction: column; align-items: flex-end; gap: 12px; transition: bottom .2s; }
 .round { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--hairline); background: var(--surface); box-shadow: var(--shadow); display: grid; place-items: center; }
 .round.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.panic { height: 68px; min-width: 132px; padding: 0 24px 0 18px; border: 0; border-radius: 999px; background: var(--danger); color: #fff;
-  box-shadow: 0 10px 28px rgba(210, 31, 60, .38), 0 2px 4px rgba(0,0,0,.2); display: inline-flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; }
-.panic svg { width: 28px; height: 28px; }
-.panic:active { transform: scale(.97); }
 body.sheet-open #btnLocate, body.sheet-open .track, body.card-open .track { visibility: hidden; }
-body.panic-open .actions, body.picker-open .actions { visibility: hidden; }
+body.picker-open .actions { visibility: hidden; }
 /* with a card open the two buttons sit side by side, so on short phones they stay clear of the header and the mode rail */
 body.card-open .actions, body.trip-on .actions { flex-direction: row; align-items: center; }
 body.card-open .moderail { display: none; }
 @media (max-height: 700px) { .card, .trip { max-height: 46%; } }
-body.sheet-open .panic { min-width: 0; width: 60px; height: 60px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
 /* with a sheet open, Panic moves into the sheet header so it never covers buttons in the sheet */
 body.sheet-open .actions { visibility: hidden; }
-.hdpanic { width: 44px; height: 44px; flex: none; border: 0; border-radius: 50%; background: var(--danger); color: #fff; display: grid; place-items: center; padding: 0; box-shadow: 0 4px 14px rgba(200, 30, 50, .35); }
-.hdpanic svg { width: 22px; height: 22px; }
 @media (max-width: 360px) { .sheet header .meta { display: none; } }
 
 .track { position: absolute; left: 12px; right: 170px; bottom: calc(var(--tab-h) + var(--sa-b) + 16px); z-index: 6; display: flex; }
@@ -255,7 +238,7 @@ details.dd .row button { border: 1px solid var(--hairline); background: var(--su
 .trip { position: absolute; left: 10px; right: 10px; bottom: calc(var(--tab-h) + var(--sa-b) + 10px); z-index: 7; background: var(--surface); background: color-mix(in srgb, var(--surface) 99.6%, transparent); border-radius: var(--r-lg);
   box-shadow: var(--shadow); border: 1px solid var(--hairline); padding: 12px 14px 8px 16px; display: none; max-height: 56%; overflow-y: auto; }
 body.trip-on .trip { display: block; }
-body.trip-on .track, body.trip-on .cond, body.trip-on .moderail { display: none; }
+body.trip-on .track, body.trip-on .moderail { display: none; }
 .moderail { position: absolute; right: 12px; top: calc(var(--sa-t) + 76px); z-index: 5; display: flex; flex-direction: column; gap: 2px; padding: 4px;
   border-radius: 16px; border: 1px solid var(--hairline); background: var(--surface); background: color-mix(in srgb, var(--surface) 94%, transparent);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
@@ -299,7 +282,7 @@ body.trip-on .focuschip { display: inline-flex; }
 .focuschip .bs { display: flex; gap: 4px; }
 .focuschip button { height: 32px; border-radius: 999px; border: 0; background: var(--surface-2); padding: 0 12px; font-weight: 700; font-size: 13.5px; }
 
-/* panic */
+/* escape + call */
 .call { display: flex; align-items: center; justify-content: center; gap: 12px; height: 64px; border-radius: 999px; background: var(--danger); color: #fff; text-decoration: none; font-weight: 800; font-size: 21px; }
 .call svg { width: 26px; height: 26px; }
 .escape { display: grid; gap: 4px; padding: 16px; border-radius: var(--r-md); background: var(--surface-2); }
@@ -339,7 +322,7 @@ input.textin { width: 100%; height: 48px; border-radius: var(--r-sm); border: 1p
   .card { left: 50%; right: auto; width: 480px; transform: translateX(-50%); }
   .top { max-width: 640px; left: 50%; transform: translateX(-50%); }
 }
-@media (max-width: 370px) { .brand span { display: none; } .cond .w .tx { display: none; } }
+@media (max-width: 370px) { .brand span { display: none; } }
 @media (prefers-reduced-motion: reduce) { .sheet, .scrim, .toast, .switch, .switch::after, details.dd summary .chev, .actions { transition: none; } }
 
 /* Way Out scenario train (src/saferide/main.tsx) */

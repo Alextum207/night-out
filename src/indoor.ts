@@ -1,5 +1,6 @@
 // Indoor routing on a precomputed OSM station graph (scripts/indoor-fetch.ts). Pure, no env access.
 import type { Crowd, LatLng } from './types'
+import { t } from './i18n'
 import mf from './data/indoor/de-09162-500.json'
 import gfz from './data/indoor/de-09184-460.json'
 
@@ -113,9 +114,9 @@ export type Step = { kind: StepKind; text: string; bearing: number; level: numbe
 export function levelName(g: Graph, level: number | null) {
   if (level === null) return ''
   const platform = Math.min(...g.platforms.map((p) => p.level))
-  if (level >= 0) return 'Straße'
-  if (level === platform) return 'Bahnsteig'
-  return 'Sperrengeschoss'
+  if (level >= 0) return t('Straße')
+  if (level === platform) return t('Bahnsteig')
+  return t('Sperrengeschoss')
 }
 const round10 = (m: number) => Math.max(10, Math.round(m / 10) * 10)
 
@@ -137,16 +138,16 @@ export function toSteps(g: Graph, p: Path, travelBearing: number | null, arriveT
   const steps: Step[] = []
   let heading: number | null = null
   const rel = (b: number, len: number, what: string) => {
-    if (travelBearing === null) return `Steig aus und geh ${what}, ${round10(len)} m`
+    if (travelBearing === null) return t('Steig aus und geh {what}, {m} m', { what, m: round10(len) }).replace(/ ,/, ',')
     const d = Math.abs(turn(travelBearing, b))
-    const dir = d < 60 ? 'in Fahrtrichtung nach vorne' : d > 120 ? 'entgegen der Fahrtrichtung' : 'quer über den Bahnsteig'
-    return `Steig aus und geh ${dir}${what ? ` ${what}` : ''}, ${round10(len)} m`
+    const dir = d < 60 ? t('in Fahrtrichtung nach vorne') : d > 120 ? t('entgegen der Fahrtrichtung') : t('quer über den Bahnsteig')
+    return t('Steig aus und geh {what}, {m} m', { what: what ? `${dir} ${what}` : dir, m: round10(len) })
   }
   // The platform itself is often only an area in OSM: walk from where you stand to the first graph node.
   const first = pt(g, p.nodes[0])
   if (origin && metres(origin, first) > 5) {
     const b = bearing(origin, first)
-    const what = p.kinds[0] === 'escalator' ? 'zur Rolltreppe' : p.kinds[0] === 'steps' ? 'zur Treppe' : p.kinds[0] === 'elevator' ? 'zum Aufzug' : ''
+    const what = p.kinds[0] === 'escalator' ? t('zur Rolltreppe') : p.kinds[0] === 'steps' ? t('zur Treppe') : p.kinds[0] === 'elevator' ? t('zum Aufzug') : ''
     steps.push({ kind: 'straight', text: rel(b, metres(origin, first), what), bearing: b, level: lvl(p.nodes[0]), points: [origin, first], underground: (lvl(p.nodes[0]) ?? 0) < 0 })
     heading = b
   }
@@ -161,22 +162,22 @@ export function toSteps(g: Graph, p: Path, travelBearing: number | null, arriveT
     const into = levelName(g, to) ? ` (${levelName(g, to)})` : ''
     if (s.kind === 'walk') {
       if (len < 5 && steps.length) { steps.at(-1)!.points.push(...pts.slice(1)); continue }
-      let kind: StepKind = 'straight', text = `Geradeaus, ${round10(len)} m`
+      let kind: StepKind = 'straight', text = t('Geradeaus, {m} m', { m: round10(len) })
       if (!steps.length) {
         text = rel(b0, len, '')
       } else if (heading !== null) {
-        const t = turn(heading, b0)
-        if (t > 40) { kind = 'right'; text = `Rechts abbiegen, dann ${round10(len)} m` }
-        else if (t < -40) { kind = 'left'; text = `Links abbiegen, dann ${round10(len)} m` }
+        const tr = turn(heading, b0)
+        if (tr > 40) { kind = 'right'; text = t('Rechts abbiegen, dann {m} m', { m: round10(len) }) }
+        else if (tr < -40) { kind = 'left'; text = t('Links abbiegen, dann {m} m', { m: round10(len) }) }
       }
       steps.push({ kind, text, bearing: b0, level: from, points: pts, underground: under })
     } else if (s.kind === 'elevator') {
-      steps.push({ kind: 'elevator', text: `Aufzug nach Ebene ${to}${into}`, bearing: b0, level: to, points: pts, underground: under })
+      steps.push({ kind: 'elevator', text: t('Aufzug nach Ebene {n}', { n: String(to) }) + into, bearing: b0, level: to, points: pts, underground: under })
     } else {
       const esc = s.kind === 'escalator'
       steps.push({
         kind: esc ? (up ? 'escalatorUp' : 'escalatorDown') : up ? 'stairsUp' : 'stairsDown',
-        text: same ? `${esc ? 'Rolltreppe' : 'Ein paar Stufen'}, dann weiter` : `${esc ? 'Rolltreppe' : 'Treppe'} ${up ? 'hoch' : 'runter'}${into}`,
+        text: same ? t(esc ? 'Rolltreppe, dann weiter' : 'Ein paar Stufen, dann weiter') : t(esc ? (up ? 'Rolltreppe hoch' : 'Rolltreppe runter') : (up ? 'Treppe hoch' : 'Treppe runter')) + into,
         bearing: b0, level: from, points: pts, underground: under,
       })
     }
@@ -219,4 +220,21 @@ export function pickExit(g: Graph, start: number, crowds: Crowd[], reasons: stri
   const shortest = [...scored].sort((a, b) => a.path.length - b.path.length)[0]
   const best = scored[0]
   return { exit: best.exit, path: best.path, avoided: shortest.exit !== best.exit && shortest.penalty > 0 ? shortest.exit : null }
+}
+
+// Way Out targets: the staff point (people who work here) and the nearest exit where people usually are (busy, never unsafe).
+// Sorted nearest first.
+export type SafeSpot = { kind: 'staff' | 'people'; path: Path; exit: Graph['exits'][number] | null }
+export function safeSpots(g: Graph, start: number, crowds: Crowd[], o: RouteOpts = {}): SafeSpot[] {
+  const out: SafeSpot[] = []
+  const staff = routeTo(g, start, g.wait, o)
+  if (staff) out.push({ kind: 'staff', path: staff, exit: null })
+  const busy = g.exits.flatMap((exit) => {
+    const near = crowds.filter((c) => metres([c.lat, c.lng], pt(g, exit.node)) < CROWD_RADIUS)
+    if (!near.some((c) => c.kind === 'busy') || near.some((c) => c.kind === 'unsafe')) return []
+    const path = routeTo(g, start, exit.node, o)
+    return path ? [{ kind: 'people' as const, path, exit }] : []
+  }).sort((a, b) => a.path.length - b.path.length)[0]
+  if (busy) out.push(busy)
+  return out.sort((a, b) => a.path.length - b.path.length)
 }

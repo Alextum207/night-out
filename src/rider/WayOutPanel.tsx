@@ -6,6 +6,7 @@ import { emptiestCar } from '../mock'
 import type { Option } from '../types'
 import Navigate from './Navigate'
 import { REASONS, type Ride } from './useRide'
+import { t } from '../i18n'
 
 const hhmm = (t: number) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 const firstSentence = (s: string) => s.split(/(?<=\.)\s/)[0]
@@ -13,10 +14,10 @@ const firstSentence = (s: string) => s.split(/(?<=\.)\s/)[0]
 // Where the rider is, in one sentence (headline, ride bar, SafeRide's ride strip).
 export function Where({ pos }: { pos: NonNullable<Ride['pos']> }) {
   return pos.state === 'train'
-    ? <>Nächster Halt <b>{pos.nextStop.name}</b> in {pos.etaMin} Min</>
+    ? <>{t('Nächster Halt')} <b>{pos.nextStop.name}</b> {t('in {n} Min', { n: pos.etaMin })}</>
     : pos.etaMin > 0
-      ? <>Am Bahnsteig <b>{pos.nextStop.name}</b>, Abfahrt in {pos.etaMin} Min</>
-      : <>Angekommen: <b>{pos.nextStop.name}</b></>
+      ? <>{t('Am Bahnsteig')} <b>{pos.nextStop.name}</b>, {t('Abfahrt in {n} Min', { n: pos.etaMin })}</>
+      : <>{t('Angekommen:')} <b>{pos.nextStop.name}</b></>
 }
 
 // Line, direction and next stop (#/rider while riding).
@@ -85,14 +86,21 @@ export function CalmScreen({ status, onClose, onFine, children, label }: {
           )}
         </div>
         {children}
-        <div className="sticky bottom-0 -mx-5 mt-auto flex gap-3 bg-paper/95 px-5 pt-4 backdrop-blur" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
-          <a href="tel:110" className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-full bg-danger text-[17px] font-bold text-white no-underline">
-            <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2" /></svg>
-            110 anrufen
-          </a>
-          <button onClick={onFine} className="h-14 flex-1 rounded-full border border-hairline bg-surface text-[17px] font-bold text-ink">Mir geht's gut</button>
-        </div>
+        <SafetyBar onFine={onFine} className="sticky bottom-0 -mx-5 mt-auto bg-paper/95 backdrop-blur" />
       </div>
+    </div>
+  )
+}
+
+// The thumb-zone bar every emergency screen ends with: 110 + "Mir geht's gut".
+export function SafetyBar({ onFine, className = '' }: { onFine: () => void; className?: string }) {
+  return (
+    <div className={`flex gap-3 px-5 pt-4 ${className}`} style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+      <a href="tel:110" className="inline-flex h-14 flex-1 items-center justify-center gap-2 rounded-full bg-danger text-[17px] font-bold text-white no-underline">
+        <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2" /></svg>
+        {t('110 anrufen')}
+      </a>
+      <button onClick={onFine} className="h-14 flex-1 rounded-full border border-hairline bg-surface text-[17px] font-bold text-ink">{t("Mir geht's gut")}</button>
     </div>
   )
 }

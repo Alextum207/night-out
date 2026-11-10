@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de" data-mode="light">
+<html lang="en" data-mode="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
@@ -51,24 +51,24 @@
     <button class="round" id="btnLocate" type="button" aria-label="Auf meinen Standort zentrieren">
       <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
-    <button class="panic" id="btnPanic" type="button" aria-label="Notfall">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>
-      <span>SOS</span>
-    </button>
   </div>
 
   <div class="card" id="card" role="dialog" aria-modal="false" aria-labelledby="cardTitle"></div>
 
-  <nav class="tabs" aria-label="SafeRide Aktionen">
-    <button class="trip-launch share-launch" id="btnShare" type="button" aria-label="Live-Standort teilen">
-      <span class="trip-launch-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 000 8.4M16.2 7.8a6 6 0 010 8.4M4.6 4.6a10.5 10.5 0 000 14.8M19.4 4.6a10.5 10.5 0 010 14.8"/></svg></span>
-      <span class="trip-launch-copy"><small>Mit Linie, Richtung & nächstem Halt</small><strong>Live-Standort teilen</strong></span>
-      <svg class="trip-launch-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
-    </button>
+  <nav class="tabs" aria-label="SafeRide">
+    <div class="sos-dock">
+      <button class="sos-call" id="btnCall" type="button" aria-label="Stationssicherheit anrufen: 1,5 Sekunden gedrückt halten">
+        <span class="sos-ring" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg></span>
+        <span class="sos-copy"><strong>Stationssicherheit</strong><small>Gedrückt halten zum Anrufen</small></span>
+      </button>
+      <button class="sos-tile" id="btnWayOut" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 4v16"/></svg><span>Way Out</span></button>
+      <button class="sos-tile" id="btnReport" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span>Melden</span></button>
+    </div>
+    <button class="trip-launch share-launch" id="btnShare" type="button"></button>
     <div class="tab-actions">
-      <button type="button" data-tab="friends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 19c.8-3.5 2.8-5.2 5.5-5.2s4.7 1.7 5.5 5.2M14 14.8c3.3-.5 5.5 1 6.5 4.2"/></svg><span>Freunde</span><span class="friend-count">3</span></button>
+      <button type="button" data-tab="friends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 19c.8-3.5 2.8-5.2 5.5-5.2s4.7 1.7 5.5 5.2M14 14.8c3.3-.5 5.5 1 6.5 4.2"/></svg><span>Freunde</span><span class="friend-count" id="friendCount"></span></button>
       <button type="button" data-tab="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 004 0"/></svg><span>Hinweise</span><span class="badgecount" id="tabCount" hidden></span></button>
-      <button type="button" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span>Melden</span></button>
+      <button type="button" data-tab="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg><span>Einstellungen</span></button>
     </div>
   </nav>
 
@@ -77,7 +77,7 @@
   <!-- Filters -->
   <section class="sheet" id="sheet-filters" role="dialog" aria-modal="true" aria-labelledby="fTitle">
     <div class="handle"></div>
-    <header><h2 id="fTitle">Kartenfilter</h2><button class="txtbtn" id="btnReset" type="button">Zurücksetzen</button><button class="hdpanic" type="button" data-hdpanic aria-label="Notfall-Modus öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header><h2 id="fTitle">Kartenfilter</h2><button class="txtbtn" id="btnReset" type="button">Zurücksetzen</button><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="body">
       <div class="group">
         <h3>Ansicht</h3>
@@ -122,21 +122,21 @@
   <!-- Friends -->
   <section class="sheet" id="sheet-friends" role="dialog" aria-modal="true" aria-labelledby="frTitle">
     <div class="handle"></div>
-    <header><h2 id="frTitle">Freunde</h2><span class="meta">3 teilen live</span><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header><h2 id="frTitle">Freunde</h2><span class="meta" id="frMeta"></span><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="body" id="friendsBody"></div>
   </section>
 
   <!-- Route -->
   <section class="sheet" id="sheet-route" role="dialog" aria-modal="true" aria-labelledby="rTitle">
     <div class="handle"></div>
-    <header><h2 id="rTitle">Wohin?</h2><button class="hdpanic" type="button" data-hdpanic aria-label="Notfall-Modus öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header><h2 id="rTitle">Wohin?</h2><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="body" id="routeBody"></div>
   </section>
 
   <!-- Alerts -->
   <section class="sheet" id="sheet-alerts" role="dialog" aria-modal="true" aria-labelledby="aTitle">
     <div class="handle"></div>
-    <header><h2 id="aTitle">Hinweise</h2><span class="meta" id="aMeta"></span><button class="hdpanic" type="button" data-hdpanic aria-label="Notfall-Modus öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header><h2 id="aTitle">Hinweise</h2><span class="meta" id="aMeta"></span><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="body" id="alertsBody"></div>
   </section>
 
@@ -150,28 +150,28 @@
   <!-- Profile -->
   <section class="sheet" id="sheet-profile" role="dialog" aria-modal="true" aria-labelledby="pfTitle">
     <div class="handle"></div>
-    <header><h2 id="pfTitle">Einstellungen</h2><span class="meta">Profil & Karte</span><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header><h2 id="pfTitle">Einstellungen</h2><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="body" id="profileBody"></div>
   </section>
 
   <!-- Tracking -->
   <section class="sheet" id="sheet-track" role="dialog" aria-modal="true" aria-labelledby="tTitle">
     <div class="handle"></div>
-    <header><h2 id="tTitle">Dein Standort</h2><button class="hdpanic" type="button" data-hdpanic aria-label="Notfall-Modus öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header><h2 id="tTitle">Dein Standort</h2><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="body" id="trackBody"></div>
   </section>
 
-  <!-- Panic -->
-  <section class="sheet" id="sheet-panic" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+  <!-- Call (simulated station security call) -->
+  <section class="sheet" id="sheet-call" role="dialog" aria-modal="true" aria-labelledby="cTitle">
     <div class="handle"></div>
-    <header><h2 id="pTitle">Way Out</h2><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
-    <div class="body" id="panicBody"></div>
+    <header><h2 id="cTitle">Stationssicherheit</h2><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <div class="body" id="callBody"></div>
   </section>
 
   <!-- Station picker (stacked above other sheets) -->
   <section class="sheet top-layer" id="sheet-picker" role="dialog" aria-modal="true" aria-labelledby="pkTitle">
     <div class="handle"></div>
-    <header><h2 id="pkTitle">Haltestelle wählen</h2><button class="hdpanic" type="button" data-hdpanic aria-label="Notfall-Modus öffnen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button class="closebtn" type="button" data-pickclose aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header><h2 id="pkTitle">Haltestelle wählen</h2><button class="closebtn" type="button" data-pickclose aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <div class="body">
       <div class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -185,6 +185,7 @@
   <div class="toast" id="toast" role="status"></div>
 </div>
 
+<script src="/saferide/i18n.js"></script>
 <script src="/saferide/maplibre.js"></script>
 <script src="/saferide/data.js"></script>
 <script src="/saferide/app.js"></script>

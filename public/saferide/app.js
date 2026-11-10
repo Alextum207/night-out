@@ -99,11 +99,16 @@ let FRIEND_MARKERS = new Map(), socialTimer = null;
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const tt = window.t || ((s, v) => v ? s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m)) : s); // public/saferide/i18n.js
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const metres = (a, b) => { const k = Math.cos((a[1] + b[1]) / 2 * Math.PI / 180); return Math.hypot((b[0] - a[0]) * k * 111320, (b[1] - a[1]) * 110540); };
 const bearing = (a, b) => { const k = Math.cos(a[1] * Math.PI / 180); return (Math.atan2((b[0] - a[0]) * k, b[1] - a[1]) * 180 / Math.PI + 360) % 360; };
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-function toast(msg, ms = 3400) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), ms); }
+function toast(msg, ms = 3400, action) {
+  const el = $('#toast'); el.textContent = msg; el.classList.toggle('has-action', !!action);
+  if (action) { const b = document.createElement('button'); b.type = 'button'; b.textContent = action.label; b.onclick = () => { el.classList.remove('on'); action.run(); }; el.append(b); }
+  el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('on'), ms);
+}
 // Timetables and clocks always run on Munich time, whatever time zone the phone is set to
 const TZ = 'Europe/Berlin';
 let tzCache = { at: -1e15, off: 0 };
@@ -686,14 +691,15 @@ function startDemoRide(silent = false) {
   const k0 = pd.names.indexOf('Odeonsplatz'), kTunnelA = pd.names.indexOf('Universität'), kTunnelB = pd.names.indexOf('Münchner Freiheit');
   const t0 = Date.now(), e0 = pd.arr[k0] - 40, speed = 3;
   Object.assign(Loc, { mode: 'demo', status: 'locating', buf: [], last: null, match: null, cands: [], override: null, err: null, watch: null, follow: true, vehicleSince: 0, lastVehicleAt: 0 });
-  Loc.demo = { pd, k0, t0, e0, speed, eAt: ms => e0 + (ms - t0) / 1000 * speed, tunnel: [kTunnelA, kTunnelB] };
+  const dm = Loc.demo = { pd, k0, t0, e0, speed, tunnel: [kTunnelA, kTunnelB] };
+  dm.eAt = ms => dm.e0 + (ms - dm.t0) / 1000 * dm.speed;
   const st = ST[pd.ids[k0]];
   map.flyTo({ center: [st.lng, st.lat], zoom: 14.2, duration: reduced() ? 0 : 1200 });
   clearInterval(Loc.demoTimer);
   Loc.demoTimer = setInterval(() => {
     const dm = Loc.demo; if (!dm) return;
     const now = Date.now(), e = dm.eAt(now);
-    if (e > dm.pd.T + 5) { locStopDemo(); toast('Demo-Fahrt in Moosach beendet.'); return; }
+    if (e > dm.pd.T + 5) { dm.t0 = now; return; } // the simulation loops: back to Odeonsplatz
     let lng, lat;
     if (e < dm.pd.arr[dm.k0]) { lng = st.lng + 0.00012; lat = st.lat - 0.00008; }
     else {
@@ -987,22 +993,20 @@ function openCard(html) { const c = $('#card'); c.innerHTML = html; c.classList.
 function closeCard() { $('#card').classList.remove('open'); selected = null; cardRefresh = null; setCardH(); applyHighlight(); }
 const closeX = `<button class="closebtn" type="button" data-cardclose aria-label="Schließen">${ICON.close}</button>`;
 
-const TAB_OF = { filters: 'map', route: 'route', share: 'map', friends: 'friends', alerts: 'alerts', report: 'report', profile: 'map', panic: 'map', track: 'map' };
+const TAB_OF = { friends: 'friends', alerts: 'alerts', profile: 'profile' };
 function openSheet(id) {
   closeCard();
   $$('.sheet.open').forEach(s => { if (s.id !== 'sheet-picker') s.classList.remove('open'); });
   const s = $('#sheet-' + id); if (!s) return;
-  if (id === 'panic') { panicCache.key = null; dropPin(); }
-  ({ route: renderRouteSheet, share: renderShareSheet, friends: renderFriends, alerts: renderAlerts, report: renderReport, profile: renderProfile, panic: renderPanic, track: renderTrackSheet }[id] || (() => {}))();
+  ({ route: renderRouteSheet, share: renderShareSheet, friends: renderFriends, alerts: renderAlerts, report: renderReport, profile: renderProfile, call: renderCall, track: renderTrackSheet }[id] || (() => {}))();
   s.classList.add('open'); s.querySelector('.body').scrollTop = 0; $('#scrim').classList.add('on');
-  openSheetId = id; document.body.classList.add('sheet-open'); document.body.classList.toggle('panic-open', id === 'panic'); setTab(TAB_OF[id] || 'map');
+  openSheetId = id; document.body.classList.add('sheet-open'); setTab(TAB_OF[id] || 'map');
   setTimeout(() => { const f = s.querySelector('[data-close]'); if (f) f.focus({ preventScroll: true }); }, 60);
 }
 function closeSheet() {
   $$('.sheet.open').forEach(s => { s.classList.remove('open'); s.style.transform = ''; });
-  // the escape-route sheet belongs to an active emergency: closing it returns to the Way Out overlay
-  if (openSheetId === 'panic') dispatchEvent(new CustomEvent('sr:emergency-open'));
-  $('#scrim').classList.remove('on'); openSheetId = null; setTab('map'); document.body.classList.remove('sheet-open', 'panic-open', 'picker-open'); setCardH();
+  if (openSheetId === 'call') endCall();
+  $('#scrim').classList.remove('on'); openSheetId = null; setTab('map'); document.body.classList.remove('sheet-open', 'picker-open'); setCardH();
 }
 function setTab(t) { $$('.tabs button').forEach(b => b.dataset.tab === t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')); }
 function enableDrag(sheet) {
@@ -1050,13 +1054,7 @@ function renderFocusChip() {
 function renderCond() {
   renderFocusChip();
   const act = activeAlerts(), hot = act.some(a => a.sev === 3);
-  const tc = $('#tabCount'); if (tc) { tc.hidden = !act.length; tc.textContent = act.length; tc.style.background = hot ? 'var(--danger)' : ''; }
-  const el = $('#cond');
-  if (!el) return;
-  if (!WEATHER) { el.innerHTML = '<span class="w">Lage wird geprüft…</span>'; return; }
-  const night = Date.now() > WEATHER.sunset || mzHour() < 6;
-  el.innerHTML = `<span class="w">${WEATHER.unknown ? '<span class="tx">Keine Wetterdaten</span>' : `${wxIcon(WEATHER.kind, night)}<b>${WEATHER.temp}°</b><span class="tx">${esc(WEATHER.text)}</span>`}</span><span class="sep"></span>
-    <span class="a"><span class="n ${hot ? 'hot' : ''}">${act.length}</span>${act.length === 1 ? 'Hinweis' : 'Hinweise'}</span>`;
+  const tc = $('#tabCount'); tc.hidden = !act.length; tc.textContent = act.length; tc.style.background = hot ? 'var(--danger)' : '';
 }
 function refreshAlertsEverywhere() { renderCond(); updateZonesLayer(); if (openSheetId === 'alerts') renderAlerts(); if (openSheetId === 'profile') renderProfile(); }
 
@@ -1093,7 +1091,6 @@ function renderTrack() {
   setHTML($('#btnTrack'), `<span class="ico ${t.live ? 'live' : ''}">${t.badge ? badge(t.badge, 'xs') : ICON.dot.replace('<svg', '<svg class="i"')}</span><span class="txt"><span class="l1">${esc(t.l1)}</span><span class="l2">${esc(t.l2)}</span></span>`);
   $('#btnLocate').classList.toggle('on', Loc.follow);
   if (openSheetId === 'track') renderTrackSheet();
-  if (openSheetId === 'panic') renderPanic();
 }
 function renderTrackSheet() {
   const b = $('#trackBody'), m = Loc.match, t = trackText();
@@ -1498,33 +1495,57 @@ function replanTrip() {
 }
 
 // ---------- report
+// kind: unsafe = never a safe crowd, busy = crowded, info = goes to the operator only (no crowd on the maps)
+const SVG = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const REPORT_TYPES = {
-  safety: { icon: '!', title: 'Unangenehme Situation', sub: 'Belästigung, Verfolgung oder Streit', sev: 2, intensity: 'harassing' },
-  dirty: { icon: '✦', title: 'Verschmutzung', sub: 'Fahrzeug oder Station', sev: 1, intensity: null },
-  broken: { icon: '⌁', title: 'Etwas ist defekt', sub: 'Licht, Tür, Aufzug oder Automat', sev: 1, intensity: null },
-  other: { icon: '…', title: 'Sonstiger Hinweis', sub: 'Kurze allgemeine Meldung', sev: 1, intensity: null },
+  harassment: { title: 'Belästigung', sub: 'Jemand bedrängt dich oder andere', kind: 'unsafe', sev: 3, icon: ICON.warn },
+  aggressive: { title: 'Aggressive Person', sub: 'Pöbeln, Drohen, Streit', kind: 'unsafe', sev: 3, icon: SVG('<circle cx="12" cy="12" r="9"/><path d="M8 9l2 1M16 9l-2 1M8.5 16c1-1 2.2-1.5 3.5-1.5s2.5.5 3.5 1.5"/>') },
+  drunk: { title: 'Betrunkene Gruppe', sub: 'Laut und unberechenbar', kind: 'unsafe', sev: 2, icon: ICON.report },
+  followed: { title: 'Verfolgt oder beobachtet', sub: 'Jemand folgt dir', kind: 'unsafe', sev: 3, icon: SVG('<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>') },
+  theft: { title: 'Diebstahl', sub: 'Taschendiebe oder Raub', kind: 'unsafe', sev: 2, icon: SVG('<path d="M6 8h12l-1 12H7z"/><path d="M9 8a3 3 0 016 0"/>') },
+  crowded: { title: 'Überfüllt', sub: 'Gedränge am Bahnsteig oder im Zug', kind: 'busy', sev: 1, icon: SVG('<circle cx="7" cy="8" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="17" cy="8" r="2"/><path d="M3.5 18c.5-2.6 1.8-4 3.5-4s3 1.4 3.5 4M8.5 18c.5-2.8 1.8-4.2 3.5-4.2s3 1.4 3.5 4.2M13.5 18c.5-2.6 1.8-4 3.5-4s3 1.4 3.5 4"/>') },
+  broken: { title: 'Defekt', sub: 'Licht, Aufzug oder Rolltreppe', kind: 'info', sev: 1, icon: SVG('<path d="M14.5 6.5a4 4 0 00-5 5L4 17l3 3 5.5-5.5a4 4 0 005-5l-2.5 2.5-2.5-.5-.5-2.5z"/>') },
+  dirty: { title: 'Verschmutzung', sub: 'Fahrzeug oder Station', kind: 'info', sev: 1, icon: SVG('<path d="M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z"/>') },
+  other: { title: 'Eigene Meldung', sub: '', kind: 'info', sev: 1, icon: ICON.info },
 };
-function renderReport() {
-  const b = $('#reportBody'), p = myPosition(), near = nearestStation(p || map.getCenter().toArray(), 300);
-  const where = p ? (near ? `An ${near.name}` : 'An deinem Standort') : (near ? `Bei ${near.name} (Kartenmitte)` : 'In der Kartenmitte');
-  b.innerHTML = `<p class="report-intro">Einmal tippen. SafeRide fügt Ort und Fahrkontext automatisch hinzu.</p>
-    <div class="report-context">${ICON.pin}<span>${esc(where)}</span></div>
-    <div class="report-actions">${Object.entries(REPORT_TYPES).map(([k, r]) => `<button class="report-action" type="button" data-report-kind="${k}"><span class="report-icon" aria-hidden="true">${r.icon}</span><span><strong>${esc(r.title)}</strong><small>${esc(r.sub)}</small></span><svg class="report-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>`).join('')}</div>
-    <p class="note">Nicht für akute Gefahr. Die Meldung geht anonym an das Verkehrsunternehmen. Im Notfall 110 wählen.</p>`;
+function reportWhere() {
+  const p = myPosition(), near = nearestStation(p || map.getCenter().toArray(), 300);
+  return p ? (near ? tt('An {name}', { name: near.name }) : tt('An deinem Standort')) : (near ? tt('Bei {name} (Kartenmitte)', { name: near.name }) : tt('In der Kartenmitte'));
 }
-function sendReport(kind) {
+function renderReport() {
+  const b = $('#reportBody');
+  b.innerHTML = `<div class="report-context">${ICON.pin}<span>${esc(reportWhere())}</span></div>
+    <div class="report-grid">${Object.entries(REPORT_TYPES).filter(([k]) => k !== 'other').map(([k, r]) => `<button class="report-chip ${r.kind}" type="button" data-report-kind="${k}"><span class="report-icon" aria-hidden="true">${r.icon}</span><strong>${esc(tt(r.title))}</strong><small>${esc(tt(r.sub))}</small></button>`).join('')}</div>
+    <form class="report-text" data-report-form>
+      <label for="reportText">${tt('Eigene Meldung schreiben')}</label>
+      <textarea id="reportText" rows="3" maxlength="280" placeholder="${esc(tt('Was ist passiert? z. B. Mann belästigt Fahrgäste im letzten Wagen'))}"></textarea>
+      <button class="btn primary block" type="submit">${tt('Meldung senden')}</button>
+    </form>
+    <p class="note">${tt('Ein Tipp genügt: Ort und Fahrkontext kommen automatisch dazu. Die Meldung geht anonym an die Leitstelle. Akute Gefahr? Halte Stationssicherheit gedrückt oder ruf 110 an.')}</p>`;
+}
+function sendReport(kind, text = null) {
   const cfg = REPORT_TYPES[kind]; if (!cfg) return;
   const p = myPosition() || map.getCenter().toArray(), near = nearestStation(p, 300);
-  const r = { id: 'me-' + Date.now(), kind: 'report', sev: cfg.sev, size: null, intensity: cfg.intensity, title: cfg.title, body: near ? `Von dir gemeldet bei ${near.name}.` : 'Von dir gemeldet.', at: p, r: 250,
+  // title stays German: it is the operator's label (src/hotspots.ts REPORT_CATEGORIES); the UI translates it with tt()
+  const r = { id: 'me-' + Date.now(), kind: 'report', category: kind, text, sev: cfg.sev, size: null, intensity: null, title: cfg.title,
+              body: text || (near ? `Von dir gemeldet bei ${near.name}.` : 'Von dir gemeldet.'), at: p, r: 250,
               from: Date.now(), to: Date.now() + 45 * 60000, source: 'Deine Meldung', mine: true };
   MYREPORTS.push(r); saveJSON(KEY_R, MYREPORTS); ALERTS.push(r); share(r);
-  closeSheet(); refreshAlertsEverywhere(); toast(`${cfg.title} wurde an das Verkehrsunternehmen gesendet.`);
+  closeSheet(); refreshAlertsEverywhere();
+  toast(tt('{title} an die Leitstelle gesendet.', { title: tt(cfg.title) }), 5000, { label: tt('Rückgängig'), run: () => { withdraw(r.id); toast(tt('Meldung zurückgenommen.')); } });
+}
+// Undo = same id with to = now (the control room drops it), gone here too.
+function withdraw(id) {
+  const gone = MYREPORTS.find(a => a.id === id); if (gone) share({ ...gone, to: Date.now() });
+  ALERTS = ALERTS.filter(a => a.id !== id); MYREPORTS = MYREPORTS.filter(a => a.id !== id); saveJSON(KEY_R, MYREPORTS);
+  if (pinUndo && pinUndo.id === id) pinUndo = null;
+  refreshAlertsEverywhere();
 }
 
 // ---------- sharing (window events, bridged to the Way Out channel by src/saferide/main.tsx)
 function share(a) {
   dispatchEvent(new CustomEvent('sr:report', { detail: { id: a.id, lat: a.at[1], lng: a.at[0], size: a.size || null, intensity: a.intensity || null,
-    panic: !!a.pin, title: a.title, from: a.from, to: a.to } }));
+    category: a.category || null, text: a.text || null, panic: !!a.pin, title: a.title, from: a.from, to: a.to } }));
 }
 addEventListener('sr:crowds', e => {
   const mine = new Set(MYREPORTS.map(r => r.id)), now = Date.now();
@@ -1535,167 +1556,98 @@ addEventListener('sr:crowds', e => {
   if (map) refreshAlertsEverywhere(); // before boot: loadMonitoring picks SHARED up
 });
 
-// ---------- panic
-// SOS first opens a three-choice decision surface. No alert is sent until the
-// rider explicitly chooses station security or Way Out.
-function startEmergency() {
-  closeSheet(); closeCard();
-  dispatchEvent(new CustomEvent('sr:emergency', { detail: { context: currentShareContext() } }));
-}
-addEventListener('sr:security', () => dropPin('Stationssicherheit kontaktiert', 'Die Leitstelle hat deinen Standort und Fahrkontext erhalten.'));
-addEventListener('sr:escape', () => { dropPin('Way Out aktiviert', 'SafeRide begleitet dich bis zu einem sicheren Ort.'); openSheet('panic'); });
-addEventListener('sr:open-report', () => openSheet('report'));
-addEventListener('sr:unpin', () => undoPin());
+// ---------- SOS dock: hold to call station security, Way Out, report
 // The control-room scenario train (Way Out): one marker with the line badge; the map flies there when the scenario starts.
 let trainMarker = null, mapReady = false, pendingTrain;
-function placeTrain(t) {
-  if (!t) { if (trainMarker) { trainMarker.remove(); trainMarker = null; } return; }
-  if (!trainMarker) { const el = document.createElement('div'); el.className = 'sr-train'; trainMarker = new maplibregl.Marker({ element: el }).setLngLat([t.lng, t.lat]).addTo(map); }
-  trainMarker.getElement().innerHTML = badge(t.line, 'lg'); trainMarker.setLngLat([t.lng, t.lat]);
-  if (t.fly) map.flyTo({ center: [t.lng, t.lat], zoom: 14, duration: reduced() ? 0 : 900 });
+function placeTrain(tr) {
+  if (!tr) { if (trainMarker) { trainMarker.remove(); trainMarker = null; } return; }
+  if (!trainMarker) { const el = document.createElement('div'); el.className = 'sr-train'; trainMarker = new maplibregl.Marker({ element: el }).setLngLat([tr.lng, tr.lat]).addTo(map); }
+  trainMarker.getElement().innerHTML = badge(tr.line, 'lg'); trainMarker.setLngLat([tr.lng, tr.lat]);
+  if (tr.fly) map.flyTo({ center: [tr.lng, tr.lat], zoom: 14, duration: reduced() ? 0 : 900 });
 }
 // before the map has loaded, keep the latest train (and its fly-to) for the load handler
 addEventListener('sr:train', e => { if (mapReady) placeTrain(e.detail); else pendingTrain = e.detail; });
-let panicCache = { key: null, html: '' }, PANIC_ALT = null, pinUndo = null;
-function dropPin(title = 'Notfall-Pin', body = 'Geht mit deinem Standort an die Leitstelle.') {
-  const p = myPosition(); if (!p) return;
-  if (ALERTS.some(a => a.pin && activeNow(a) && metres(a.at, p) < 200)) return;
+let pinUndo = null;
+// Emergency pin to the control room. Returns the pin id, or null when nothing was sent (no position, or a pin is already active here).
+function dropPin(title, body) {
+  const p = myPosition(); if (!p) return null;
+  if (ALERTS.some(a => a.pin && activeNow(a) && metres(a.at, p) < 200)) return null;
   const a = { id: 'pin-' + Date.now(), kind: 'report', sev: 3, title, body, at: p, r: 220,
               from: Date.now(), to: Date.now() + 15 * 60000, source: title, mine: true, pin: true };
-  ALERTS.push(a); MYREPORTS.push(a); saveJSON(KEY_R, MYREPORTS); share(a); pinUndo = { id: a.id, until: Date.now() + 8000 }; panicCache.key = null;
+  ALERTS.push(a); MYREPORTS.push(a); saveJSON(KEY_R, MYREPORTS); share(a); pinUndo = { id: a.id, until: Date.now() + 8000 };
   refreshAlertsEverywhere();
-}
-function undoPin() {
-  if (!pinUndo) return; const id = pinUndo.id; pinUndo = null;
-  const gone = MYREPORTS.find(a => a.id === id); if (gone) share({ ...gone, to: Date.now() });
-  ALERTS = ALERTS.filter(a => a.id !== id); MYREPORTS = MYREPORTS.filter(a => a.id !== id); saveJSON(KEY_R, MYREPORTS); panicCache.key = null;
-  refreshAlertsEverywhere(); renderPanic(); toast('Notfall-Pin entfernt.');
-}
-function panicAltRoute() {
-  const tr = ROUTE.trip; if (!tr) return null;
-  const m = Loc.status === 'vehicle' ? Loc.match : null;
-  let origin, exclude = new Set();
-  if (m && m.pd) { origin = { onboard: { pi: m.pd.i, k: Math.max(1, m.next), eta: Math.max(20, m.eta || 0), line: m.line } }; exclude.add(m.line); }
-  else {
-    const st = tr.steps[tr.cur];
-    if (!Loc.last && st && st.kind === 'ride' && tr.live && tr.live.pd) { origin = { onboard: { pi: tr.live.pd.i, k: Math.max(1, tr.live.next), eta: Math.max(20, tr.live.eta), line: st.line } }; exclude.add(st.line); }
-    else {
-      const pos = myPosition(); const sid = st && (st.atSid || st.toSid);
-      origin = pos ? { lng: pos[0], lat: pos[1] } : (sid ? { sid } : { lng: DEMO_POS[0], lat: DEMO_POS[1] });
-      const nb = tr.steps.slice(tr.cur).find(x => x.kind === 'board'); if (nb) exclude.add(nb.line);
-    }
-  }
-  let r = findRoute(origin, tr.dest, routingContext('safe', secOfDay(), { exclude }));
-  if (!r && exclude.size) r = findRoute(origin, tr.dest, routingContext('safe', secOfDay()));
-  return r;
-}
-function renderPanic() {
-  const b = $('#panicBody'); if (!b) return;
-  const c = currentShareContext(), live = c.line ? `${badge(c.line, 'lg')}<span><small>Du bist unterwegs</small><strong>${esc(c.line)} Richtung ${esc(c.direction)}</strong></span>` : `<span class="friend-avatar" style="--friend-color:#0878ff">Du</span><span><small>Dein Standort</small><strong>${esc(c.direction)}</strong></span>`;
-  b.innerHTML = `<div class="share-status"><span class="share-pulse" aria-hidden="true"></span><span><strong>Way Out ist aktiv</strong><span>Dein Standort wird 15 Minuten mit der Leitstelle geteilt.</span></span></div>
-    <div class="share-context"><div class="share-context-main">${live}</div><div class="share-meta-grid"><div><small>Nächster Halt</small><strong>${esc(c.next)}</strong></div><div><small>Dort in</small><strong>${c.eta > 0 ? `${c.eta} Min` : 'jetzt'}</strong></div><div><small>Position</small><strong>${esc(c.accuracy)}</strong></div></div></div>
-    <div class="escape"><div class="why" style="margin:0">Jetzt</div><div class="big">${c.line ? `Steig am nächsten Halt aus.` : 'Geh zu Menschen und Licht.'}</div><div class="why">${c.line ? `Am ${esc(c.next)} gehst du zur Bahnsteigmitte oder zur roten Notrufsäule.` : 'Bleib in einem hellen, belebten Bereich und suche die nächste Notrufsäule.'}</div></div>
-    <button class="btn primary block" type="button" data-act="security">Stationssicherheit kontaktieren</button>
-    <a class="call" href="tel:110"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>Akute Gefahr: 110</a>`;
-}
-function renderPanicLegacy() {
-  const b = $('#panicBody'), m = Loc.match;
-  if (!b.querySelector('#pnEscape')) b.innerHTML = `<a class="call" href="tel:110"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>110 anrufen</a>
-    <button class="btn primary block" type="button" data-act="emergency" style="margin:10px 0">Zurück zum Notfall</button>
-    <div id="pnPin"></div><div id="pnEscape"></div><p class="note">Bist du gerade in Gefahr, ruf die Polizei unter 110 an.</p>`;
-  setHTML($('#pnPin'), pinUndo && pinUndo.until > Date.now() ? `<div class="banner" style="align-items:center">${ICON.pin.replace('<svg', '<svg width="18" height="18"')}<span style="margin-right:auto">Notfall-Pin für 15 Minuten hier gesetzt.</span><button class="txtbtn" type="button" data-act="unpin">Rückgängig</button></div>` : '');
-  let html;
-  const tr = ROUTE.trip;
-  if (tr) {
-    const key = ['trip', tr.dest, tr.cur, m && m.line, m && m.next, Loc.status, ALERTS.length, Math.floor(Date.now() / 30000)].join('|');
-    if (panicCache.key !== key) {
-      const r = panicAltRoute(); PANIC_ALT = r;
-      let h;
-      if (!r) h = `<div class="escape"><div class="big" style="font-size:20px">Gerade keine andere Verbindung nach ${esc(stName(tr.dest))}</div><div class="why">Geh dorthin, wo Menschen und Licht sind, und ruf 110 an, wenn du dich bedroht fühlst.</div></div>`;
-      else {
-        const steps = tripSteps(r, tr.dest), first = steps[0], ride = steps.find(x => x.kind === 'board');
-        const v1 = stepView(first, null, true);
-        // when the escape starts by boarding, the second line says where to get off instead of repeating the boarding
-        const after = first === ride ? steps.slice(1).find(x => x.kind === 'board' || x.kind === 'ride') : ride;
-        const head = first.kind === 'exit' ? `Steig aus an ${esc(stName(first.toSid))}` : first.kind === 'walk' ? `Zu Fuß nach ${esc(stName(first.toSid))}` : first.kind === 'ride' && first.onboard ? `Bleib sitzen bis ${esc(stName(first.toSid))}`
-          : first === ride ? `Nimm ${badge(ride.line, 'sm')} Richtung ${esc(ride.dir)} um ${absClock(ride.dep)}` : v1.ins;
-        const z = routeZones(r);
-        const zz = z.zones.filter(q => !String(q.id).startsWith('pin-'));
-        const why = zz.length ? `Fährt ohne Halt an ${zz.slice(0, 2).map(q => `„${q.title}“`).join(' und ')} vorbei` : 'Keine weiteren Meldungen auf dem Weg';
-        const late = r.arrive - tr.r.arrive;
-        h = `<div class="escape"><div class="why" style="margin:0">Sicherer Weg nach ${esc(stName(tr.dest))}</div>
-          <div class="big">${head}${first.kind === 'exit' && m && m.eta > 30 ? ` <span style="font-weight:600;font-size:18px">in etwa ${Math.max(1, mins(m.eta))} Min</span>` : ''}</div>
-          ${after ? `<div class="big" style="font-size:20px;margin-top:8px">${after.kind === 'board' ? `Dann ${badge(after.line, 'sm')} Richtung ${esc(after.dir)} um ${absClock(after.dep)}` : `Steig aus an ${esc(stName(after.toSid))}`}</div>` : ''}
-          <div class="legs" style="margin-top:10px">${legSummary(r)}</div>
-          <div class="why">${esc(why)}. Ankunft ${absClock(r.arrive)}${late > 60 ? `, ${mins(late)} Min später als geplant` : ''}.</div>
-          <div class="btns"><button class="btn primary" type="button" data-act="usealt">Diese Route nehmen</button></div></div>`;
-      }
-      panicCache = { key, html: h };
-    }
-    html = panicCache.html;
-  } else if (Loc.status === 'vehicle' && m) {
-    const exit = m.pd.ids[m.next], key = [m.line, m.to, exit, P.home, ALERTS.length, Math.floor(Date.now() / 30000)].join('|');
-    let plan = '';
-    if (panicCache.key === key) plan = panicCache.html;
-    else {
-      if (P.home && ST[P.home] && exit !== P.home) {
-        const r = findRoute({ sid: exit }, P.home, routingContext('safe', secOfDay() + m.eta, { exclude: new Set([m.line]) }));
-        const first = r && r.legs.find(l => l.type === 'ride');
-        if (first) {
-          const z = routeZones(r), wait = Math.max(0, mins(first.dep - secOfDay() - m.eta));
-          const why = z.zones.length ? `Fährt ohne Halt an ${z.zones.slice(0, 2).map(q => `„${q.title}“`).join(' und ')} vorbei` : 'Keine Meldungen auf dem Weg';
-          plan = `<div class="big" style="font-size:20px;margin-top:8px">Dann ${badge(first.line, 'sm')} Richtung ${esc(first.to)} um ${clock(Date.now() + (first.dep - secOfDay()) * 1000)}</div>
-            <div class="why">${esc(why)}, ${wait <= 1 ? 'fast keine Wartezeit' : `${wait} Min Wartezeit`}. Zuhause gegen ${clock(Date.now() + (r.arrive - secOfDay()) * 1000)}.</div>`;
-        }
-      } else if (!P.home) plan = `<div class="why">Leg im Profil deine Heimhaltestelle fest oder starte eine Fahrt, dann sagt dir SafeRide auch, was du danach nimmst.</div>`;
-      panicCache = { key, html: plan };
-    }
-    html = `<div class="escape"><div class="why" style="margin:0">Du bist in der ${esc(m.line)} Richtung ${esc(m.to)}</div>
-      <div class="big">Steig aus an ${esc(m.pd.names[m.next])}${m.eta > 30 ? ` <span style="font-weight:600;font-size:18px">in etwa ${Math.max(1, mins(m.eta))} Min</span>` : ''}</div>${plan}</div>`;
-  } else if (Loc.mode !== 'off') {
-    const near = nearestStation(myPosition(), 400);
-    html = `<div class="escape"><div class="big" style="font-size:20px">${near ? `Du bist bei ${esc(near.name)}` : 'Du bist gerade in keinem Fahrzeug'}</div><div class="why">Geh dorthin, wo Menschen und Licht sind. Plan eine sichere Route im Tab Route.</div></div>`;
-  } else {
-    html = `<div class="escape"><div class="big" style="font-size:20px">Schalte den Standort ein, um eine Fluchtroute zu bekommen</div><div class="why">SafeRide muss wissen, in welchem Zug du bist, um dir zu sagen, wo du aussteigst.</div>
-      <div class="btns"><button class="btn primary" type="button" data-loc="start">Standort einschalten</button><button class="btn" type="button" data-loc="demo">Demo-Fahrt</button></div></div>`;
-  }
-  setHTML($('#pnEscape'), html);
+  return a.id;
 }
 
-// ---------- profile
-function stationPills(list, kind) {
-  return `<div class="pills">${list.filter(id => ST[id]).map(id => `<span class="pill"><span class="mk" style="background:${kind === 'avoided' ? 'var(--danger)' : 'var(--ok)'}"></span>${esc(ST[id].name)}<button type="button" data-premove="${kind}|${esc(id)}" aria-label="${esc(ST[id].name)} entfernen">${ICON.close.replace('<svg', '<svg width="16" height="16"')}</button></span>`).join('')}
-    <button class="pill add" type="button" data-padd="${kind}">+ Haltestelle hinzufügen</button></div>`;
+// Press and hold: a ring fills; letting go early cancels. Keyboard: hold Enter or Space.
+const HOLD_MS = 1500;
+function bindHold(btn, done) {
+  let raf = 0, timer = 0, t0 = 0; // the timer decides, the frame loop only draws the ring
+  const set = v => btn.style.setProperty('--hold', v.toFixed(3));
+  const draw = now => { set(Math.min(1, (now - t0) / HOLD_MS)); raf = requestAnimationFrame(draw); };
+  const reset = () => { clearTimeout(timer); cancelAnimationFrame(raf); timer = raf = 0; set(0); };
+  const stop = () => { if (!timer) return; reset(); toast(tt('Gedrückt halten zum Anrufen'), 1600); };
+  const start = () => { if (timer) return; t0 = performance.now(); raf = requestAnimationFrame(draw); timer = setTimeout(() => { reset(); buzz([60]); done(); }, HOLD_MS); };
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); try { btn.setPointerCapture(e.pointerId); } catch (x) {} start(); });
+  for (const ev of ['pointerup', 'pointercancel']) btn.addEventListener(ev, stop);
+  btn.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); start(); } });
+  btn.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' ') stop(); });
+  btn.addEventListener('contextmenu', e => e.preventDefault());
 }
+
+// Simulated call: no real phone call; the control room gets a pin with location and ride context.
+let CALL = null;
+function startCall() {
+  const id = dropPin('Anruf Stationssicherheit', 'Simulierter Anruf aus SafeRide, mit Standort und Fahrkontext.');
+  CALL = { at: Date.now(), sent: !!id, located: !!myPosition() };
+  openSheet('call');
+}
+function endCall() { if (!CALL) return; CALL = null; toast(tt('Anruf beendet. Die Leitstelle sieht deinen Standort noch 15 Minuten.'), 3800); }
+function renderCall() {
+  const b = $('#callBody'); if (!b || !CALL) return;
+  if (b.dataset.call !== String(CALL.at)) { // skeleton once per call, then only the live parts update (the buttons stay put)
+    b.dataset.call = CALL.at;
+    b.innerHTML = `<div class="call-live ${CALL.located ? '' : 'warn'}"><span class="share-pulse" aria-hidden="true"></span><strong id="callState"></strong><span class="timer" id="callTimer"></span></div>
+      <div class="share-context" id="callCtx"></div>
+      <p class="note" style="margin:0">${esc(!CALL.located ? tt('Ohne Standort: Sag am Telefon, wo du bist.') : CALL.sent ? tt('Die Leitstelle sieht deinen Standort und Fahrkontext.') : tt('Dein Standort ist schon bei der Leitstelle.'))}</p>
+      <button class="btn block hangup" type="button" data-close>${tt('Auflegen')}</button>
+      <p class="call-110">${tt('Akute Gefahr?')} <a href="tel:110">${tt('110 anrufen')}</a></p>`;
+  }
+  const s = Math.floor((Date.now() - CALL.at) / 1000), c = currentShareContext();
+  setHTML($('#callState'), s < 2 ? tt('Verbinde…') : tt('Verbunden mit Stationssicherheit'));
+  setHTML($('#callTimer'), `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')} · ${tt('Simulation')}`);
+  const where = c.line ? `${badge(c.line, 'lg')}<span><small>${tt('Mitgesendet')}</small><strong>${esc(tt('{line} Richtung {to}', { line: c.line, to: c.direction }))}</strong></span>`
+    : `<span class="friend-avatar" style="--friend-color:var(--focus)">${tt('Du')}</span><span><small>${tt('Mitgesendet')}</small><strong>${esc(c.next)}</strong></span>`;
+  setHTML($('#callCtx'), `<div class="share-context-main">${where}</div><div class="share-meta-grid"><div><small>${tt('Nächster Halt')}</small><strong>${esc(c.next)}</strong></div><div><small>${tt('Dort in')}</small><strong>${c.eta > 0 ? tt('{n} Min', { n: c.eta }) : tt('jetzt')}</strong></div></div>`);
+}
+
+// Way Out: the station the simulated U3 ride is at (or arrives at next). Münchner Freiheit has a real indoor graph, every other station a mock one.
+const INDOOR_IDS = { 'Münchner Freiheit': 'de:09162:500' };
+function wayOutStop() {
+  const dm = Loc.demo; if (!dm) return null;
+  const e = Math.max(0, Math.min(dm.pd.T, dm.eAt(Date.now()))), q = posAt(dm.pd, e), k = q.next;
+  const ll = i => i >= 0 && i < dm.pd.ids.length ? [ST[dm.pd.ids[i]].lng, ST[dm.pd.ids[i]].lat] : null;
+  const here = ll(k), prev = ll(k - 1), next = ll(k + 1), name = dm.pd.names[k];
+  return { id: INDOOR_IDS[name] || 'mock:' + name, name, lat: here[1], lng: here[0], travelBearing: prev ? bearing(prev, here) : next ? bearing(here, next) : null,
+           line: dm.pd.line, direction: dm.pd.to, onTrain: !q.atStop, eta: Math.max(0, Math.round((dm.pd.arr[k] - e) / 60)) };
+}
+let WAYOUT_PIN = null;
+function startWayOut() {
+  const stop = wayOutStop(); if (!stop) { toast(tt('Die Simulation startet gleich. Versuch es in ein paar Sekunden noch mal.')); return; }
+  closeSheet(); closeCard();
+  WAYOUT_PIN = dropPin('Way Out aktiv', `Unterwegs zum nächsten sicheren Ort an ${stop.name}.`);
+  dispatchEvent(new CustomEvent('sr:wayout', { detail: stop }));
+}
+// "Mir geht's gut" in Way Out: take the pin back.
+addEventListener('sr:fine', () => { if (WAYOUT_PIN) withdraw(WAYOUT_PIN); WAYOUT_PIN = null; toast(tt('Gut, dass alles okay ist. Way Out ist beendet.')); });
+
+// ---------- settings: a prototype needs only language and appearance
 function renderProfile() {
   const b = $('#profileBody'); if (!b) return;
-  const srcRow = (name, st, sub) => `<div class="srcrow"><b>${name}</b><span class="state ${st === 'live' ? 'live' : ''}">${st === 'live' ? 'Live' : st === 'loading' ? 'Lädt' : st === 'na' ? 'Nur gehostet' : st === 'line' ? 'Ersatz' : st === 'off' ? 'Nicht verfügbar' : 'Demo-Daten'}</span><small>${sub}</small></div>`;
-  b.innerHTML = `
-    <div class="group"><h3>Karte</h3><button class="field" type="button" data-openfilters><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span><span class="lbl">Linien und Ansicht</span><span class="val">U-Bahn, S-Bahn, Tram und Kartendetails</span></span></button></div>
-    <div class="group"><h3>Zuhause</h3>
-      <button class="field" type="button" data-phome>${ICON.pin}<span><span class="lbl">Heimhaltestelle</span><span class="val ${P.home ? '' : 'empty'}">${P.home && ST[P.home] ? esc(ST[P.home].name) : 'Heimhaltestelle wählen'}</span></span></button>
-      <p>Für „Zuhause“ in Route, Hinweise auf deinem Heimweg und die Fluchtroute im Notfall-Modus.</p></div>
-    <div class="group"><h3>Bevorzugte Haltestellen</h3>${stationPills(P.preferred, 'preferred')}<p>Sichere Routen steigen hier um, wenn es geht. Auf der Karte mit grünem Ring.</p></div>
-    <div class="group"><h3>Gemiedene Haltestellen</h3>${stationPills(P.avoided, 'avoided')}<p>Sichere Routen fahren drumherum, wenn es eine andere Verbindung gibt. Mit rotem Ring.</p></div>
-    <div class="group"><h3>Routen</h3>
-      <div class="seg wide" role="group" aria-label="Standardroute"><button type="button" data-pdef="safe" aria-pressed="${P.routeDefault === 'safe'}">Sicherste zuerst</button><button type="button" data-pdef="fast" aria-pressed="${P.routeDefault === 'fast'}">Schnellste zuerst</button></div>
-      <p>Extrazeit, die du für eine sicherere Route in Kauf nimmst</p>
-      <div class="seg wide" role="group" aria-label="Extrazeit">${[5, 10, 15, 20].map(n => `<button type="button" data-pextra="${n}" aria-pressed="${P.maxExtra === n}">+${n} Min</button>`).join('')}</div>
-      <div>${[['report', 'Meldungen'], ['disruption', 'Störungen'], ['construction', 'Baustellen'], ['news', 'News und Veranstaltungen']].map(([k, l]) => `<div class="toggle"><label for="ps-${k}">${l} meiden</label><input class="switch" type="checkbox" id="ps-${k}" data-psrc="${k}" ${P.sources[k] ? 'checked' : ''}></div>`).join('')}</div></div>
-    <div class="group"><h3>Standort</h3>
-      <div><div class="toggle"><label for="pTrack">Standort verfolgen, solange die App offen ist<small>Erkennt deine U-Bahn, Tram oder deinen Bus. Dein Verlauf bleibt auf diesem Handy.</small></label><input class="switch" type="checkbox" id="pTrack" ${Loc.mode === 'gps' || (P.tracking && Loc.mode !== 'demo') ? 'checked' : ''}></div></div>
-      <button class="btn block" type="button" data-loc="demo">Demo-Fahrt mit der U3 starten</button></div>
-    <div class="group"><h3>Kartenstil</h3>
-      <div class="seg wide" role="group" aria-label="Kartenstil">${[['auto', 'Auto'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([k, l]) => `<button type="button" data-style="${k}" aria-pressed="${P.style === k}">${l}</button>`).join('')}</div>
-      <p>Auto wechselt von 20:00 bis 06:00 auf dunkel.</p></div>
-    <div class="group"><h3>Datenquellen</h3>
-      <div>${srcRow('MVG-Störungen und Baustellen', SOURCES.mvg, 'MVG-Meldungs-API, alle 2 Minuten')}${srcRow('News und Veranstaltungen', SOURCES.news, 'RSS-Feeds über deinen Daten-Proxy')}${srcRow('Wetter', SOURCES.weather, 'Open-Meteo, ohne Schlüssel')}${srcRow('Stadtplan', SOURCES.streets === 'live' ? 'live' : PREVIEW ? 'na' : SOURCES.streets === 'off' ? 'off' : 'loading', SOURCES.streets === 'live' ? 'Esri-Karte hell und dunkel mit Straßennamen' : PREVIEW ? 'Braucht eine eigene Adresse; die claude.ai-Vorschau lädt keine Kartenkacheln' : 'Esri-Kartenkacheln haben nicht geladen; prüf die Verbindung')}${srcRow('Fußwege', SOURCES.walk === 'off' ? 'line' : (SOURCES.walk === 'live' || !PREVIEW) ? 'live' : 'na', 'OpenStreetMap-Fußrouting (FOSSGIS); sonst gerade Linie')}
-        ${srcRow('Meldungen', 'live', 'Über die Leitstelle mit allen SafeRide-Handys geteilt')}</div>
-      <div class="toggle"><label for="pDemo">Demo-Beispiele zeigen<small>Beispielmeldungen und -hinweise, markiert mit „Demo-Daten“, wo noch keine Live-Daten angebunden sind. Für echte Tests ausschalten.</small></label><input class="switch" type="checkbox" id="pDemo" ${P.demo ? 'checked' : ''}></div>
-      <details class="dd"><summary>Für Entwickler<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
-        <div class="inner"><label for="proxyUrl" class="note">Daten-Proxy-URL (Supabase-Edge-Function „monitor“)</label><input class="textin" id="proxyUrl" type="url" placeholder="https://…supabase.co/functions/v1/monitor" value="${esc(P.proxyUrl)}">
-        <button class="btn" type="button" data-psaveproxy>Speichern und Daten neu laden</button></div></details></div>
-    <div class="group"><h3>Über diese Karte</h3><p>Netzreihenfolge aus Wikipedia via Map::Tube::Muenchen, Haltepositionen aus der Haltestellenliste der Deutschen Bahn, Linienänderungen 2026 aus dem MVV-Fahrplanfeed (CC BY 4.0). Stadtgrenze © OpenStreetMap-Mitwirkende. Fahrzeuge sind simuliert, bis Live-Positionen angebunden sind.</p></div>`;
+  const seg = (attr, cur, opts, label) => `<div class="seg wide" role="group" aria-label="${esc(label)}">${opts.map(([k, l]) => `<button type="button" data-${attr}="${k}" aria-pressed="${cur === k}">${l}</button>`).join('')}</div>`;
+  b.innerHTML = `<div class="group"><h3>${tt('Sprache')}</h3>${seg('lang', window.SR_LANG, [['en', 'English'], ['de', 'Deutsch']], tt('Sprache'))}</div>
+    <div class="group"><h3>${tt('Darstellung')}</h3>${seg('style', P.style, [['auto', tt('Auto')], ['light', tt('Hell')], ['dark', tt('Dunkel')]], tt('Darstellung'))}<p>${tt('Auto wechselt von 20:00 bis 06:00 auf dunkel.')}</p></div>
+    <p class="note">${tt('SafeRide ist ein Prototyp: Fahrt, Freunde, Anruf und Way Out sind simuliert.')}</p>`;
 }
 
 // ---------- filters UI
@@ -1716,8 +1668,7 @@ function buildFilterUI() {
 const TRAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 3h6M12 3v3M8 21l2-3M16 21l-2-3M6 12h12"/></svg>';
 function renderModeRail() {
   const el = $('#modeRail'); if (!el) return;
-  const settings = `<button class="rail-settings" type="button" data-open-settings aria-label="Profil, Einstellungen und Kartenfilter" title="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="8" r="3"/><path d="M4 18c1-3 3-4.5 6-4.5 1.4 0 2.6.3 3.6 1"/><path d="M17 13v8M14 16h6"/></svg></button>`;
-  setHTML(el, settings + MODES.filter(m => LINES.some(L => L.mode === m)).map(m => { const [g, c] = MODE_GLYPH[m], on = !!F.modes[m];
+  setHTML(el, MODES.filter(m => LINES.some(L => L.mode === m)).map(m => { const [g, c] = MODE_GLYPH[m], on = !!F.modes[m];
     return `<button type="button" data-railmode="${m}" aria-pressed="${on}" aria-label="${MODE_LABEL[m]}: ${on ? 'sichtbar, tippen zum Ausblenden' : 'ausgeblendet, tippen zum Einblenden'}" title="${MODE_LABEL[m]}"><span class="g ${m}" style="--c:${c}">${m === 'TRAM' ? TRAM_SVG : g}</span></button>`; }).join(''));
 }
 function syncFilterUI() {
@@ -1729,7 +1680,6 @@ function syncFilterUI() {
   $$('.linebtn').forEach(b => b.setAttribute('aria-pressed', String(base.has(b.dataset.line))));
   for (const G of GROUPS) { const el = $(`[data-count="${G.key}"]`); if (!el) continue; const ls = LINES.filter(G.pick); el.textContent = ls.length ? `${ls.filter(L => vis.has(L.line)).length} von ${ls.length} sichtbar` : 'Noch keine Daten'; }
   $('#tStations').checked = F.stations; $('#tVehicles').checked = F.vehicles; $('#tZones').checked = F.zones;
-  $('.rail-settings')?.classList.toggle('has-dot', F.view !== 'basic' || MODES.some(m => !F.modes[m] && LINES.some(L => L.mode === m)) || !F.stations || !F.vehicles || !F.zones);
 }
 function renderSearch(q) {
   const box = $('#searchResults'); q = q.trim().toLowerCase().replace(/\s+/g, '');
@@ -1755,7 +1705,6 @@ function bindUI() {
   document.addEventListener('click', e => {
     const t = e.target.closest('button, a'); if (!t) return;
     const d = t.dataset;
-    if (t.hasAttribute('data-hdpanic')) { closePicker(); startEmergency(); return; }
     if (d.view) { F.view = d.view; closeCard(); applyFilters(); return; }
     if (t.matches('.chip[data-mode]')) { F.modes[d.mode] = !F.modes[d.mode]; applyFilters(); return; }
     if (d.railmode) { const m = d.railmode; F.modes[m] = !F.modes[m]; applyFilters(); toast(`${MODE_LABEL[m]} auf der Karte ${F.modes[m] ? 'eingeblendet' : 'ausgeblendet'}.`, 1800); return; }
@@ -1770,8 +1719,6 @@ function bindUI() {
     if (t.hasAttribute('data-share-copy')) { toast('Einladungslink kopiert. Er ist 60 Minuten gültig.'); return; }
     if (t.hasAttribute('data-share-extend')) { SOCIAL.ends += 60 * 60000; renderShareSheet(); renderShareButton(); toast('Um 1 Stunde verlängert.'); return; }
     if (t.hasAttribute('data-share-stop')) { stopSharing(); return; }
-    if (t.hasAttribute('data-open-settings')) { openSheet('profile'); return; }
-    if (t.hasAttribute('data-openfilters')) { openSheet('filters'); return; }
     if (d.friend || d.friendFocus) {
       const id = d.friend || d.friendFocus, f = SOCIAL.friends.find(x => x.id === id); if (!f) return;
       SOCIAL.selected = id; const s = friendSnapshot(f); updateFriendMarkers(); map.flyTo({ center: [s.lng, s.lat], zoom: 14.7, duration: reduced() ? 0 : 800 });
@@ -1790,10 +1737,6 @@ function bindUI() {
     if (d.act === 'endtrip') { closeSheet(); endTrip('Fahrt beendet. Die Karte zeigt wieder alle Linien.'); return; }
     if (d.act === 'replan') { replanTrip(); return; }
     if (d.act === 'dismisszone') { if (ROUTE.trip) { ROUTE.trip.dismissed.add(d.z); tripTick(); } return; }
-    if (d.act === 'usealt') { if (PANIC_ALT && ROUTE.trip) { const dest = ROUTE.trip.dest; startTrip(PANIC_ALT, dest, 'safe'); panicCache.key = null; toast('Auf die sicherere Route gewechselt.'); } return; }
-    if (d.act === 'unpin') { undoPin(); return; }
-    if (d.act === 'security') { dispatchEvent(new CustomEvent('sr:security')); toast('Stationssicherheit hat deinen Standort und Fahrkontext erhalten.'); renderPanic(); return; }
-    if (d.act === 'emergency') { closeSheet(); return; } // closeSheet reopens the overlay
     if (d.act === 'focustoggle') { if (ROUTE.trip) { ROUTE.trip.focus = !ROUTE.trip.focus; applyFilters(); renderCond(); } return; }
     // route sheet
     if (d.rfield) { openPicker(d.rfield === 'from' ? 'Start' : 'Wohin?', sid => { if (sid === '__me') ROUTE.from = null; else if (d.rfield === 'from') ROUTE.from = { sid }; else ROUTE.to = sid; computeRoutes(); renderRouteSheet(); },
@@ -1812,16 +1755,11 @@ function bindUI() {
       alertCard(a.id); return; }
     // report
     if (d.reportKind) { sendReport(d.reportKind); return; }
-    // profile
-    if (t.hasAttribute('data-phome')) { openPicker('Heimhaltestelle', sid => { P.home = sid; saveP(); renderProfile(); }); return; }
-    if (d.padd) { openPicker(d.padd === 'avoided' ? 'Haltestelle meiden' : 'Bevorzugte Haltestelle', sid => { if (!P[d.padd].includes(sid)) togglePref(d.padd, sid); renderProfile(); }); return; }
-    if (d.premove) { const [k, sid] = d.premove.split('|'); P[k] = P[k].filter(x => x !== sid); saveP(); applyFilters(); if (ROUTE.to) computeRoutes(); renderProfile(); return; }
-    if (d.pdef) { P.routeDefault = d.pdef; ROUTE.mode = null; saveP(); renderProfile(); return; }
-    if (d.pextra) { P.maxExtra = +d.pextra; saveP(); renderProfile(); return; }
+    // settings
+    if (d.lang) { if (d.lang !== window.SR_LANG) window.setLang(d.lang); return; }
     if (d.style) { P.style = d.style; saveP(); applyTheme(); renderProfile(); return; }
-    if (t.hasAttribute('data-psaveproxy')) { P.proxyUrl = $('#proxyUrl').value.trim(); saveP(); SOURCES = { ...SOURCES, mvg: 'loading', news: 'loading', weather: 'loading' }; renderProfile(); loadMonitoring(); toast('Gespeichert. Live-Daten werden neu geladen.'); return; }
     // location
-    if (d.loc === 'start') { locStart(true); renderTrackSheet(); if (openSheetId === 'panic') renderPanic(); return; }
+    if (d.loc === 'start') { locStart(true); renderTrackSheet(); return; }
     if (d.loc === 'stop') { locStop(); renderTrackSheet(); return; }
     if (d.loc === 'demo') { startDemoRide(); return; }
     if (d.iam) { const [line, to] = d.iam.split('|'); Loc.override = { line, to, at: Date.now() }; analyze(); toast(`Alles klar: ${line} Richtung ${to}.`); return; }
@@ -1831,13 +1769,17 @@ function bindUI() {
     if (t.id === 'tStations') { F.stations = t.checked; applyFilters(); }
     if (t.id === 'tVehicles') { F.vehicles = t.checked; applyFilters(); }
     if (t.id === 'tZones') { F.zones = t.checked; applyFilters(); }
-    if (t.dataset.psrc) { P.sources[t.dataset.psrc] = t.checked; saveP(); if (ROUTE.to) computeRoutes(); }
-    if (t.id === 'pDemo') { P.demo = t.checked; saveP(); loadMonitoring().then(() => { if (ROUTE.to) computeRoutes(); }); renderProfile(); }
-    if (t.id === 'pTrack') { if (t.checked) locStart(true); else locStop(); setTimeout(renderProfile, 400); }
   });
   $('#btnShare').addEventListener('click', beginSharing);
-  $('#cond')?.addEventListener('click', () => openSheet('alerts'));
-  $('#btnPanic').addEventListener('click', startEmergency);
+  bindHold($('#btnCall'), startCall);
+  $('#btnWayOut').addEventListener('click', startWayOut);
+  $('#btnReport').addEventListener('click', () => openSheet('report'));
+  document.addEventListener('submit', e => {
+    if (!e.target.matches('[data-report-form]')) return;
+    e.preventDefault(); const txt = $('#reportText').value.trim();
+    if (!txt) { $('#reportText').focus(); toast(tt('Schreib kurz, was passiert ist.')); return; }
+    sendReport('other', txt);
+  });
   $('#btnTrack').addEventListener('click', () => openSheet('track'));
   $('#scrim').addEventListener('click', () => { if ($('#sheet-picker').classList.contains('open')) closePicker(); else closeSheet(); });
   $('#btnReset').addEventListener('click', () => { F = JSON.parse(JSON.stringify(FDEF)); $('#lineSearch').value = ''; renderSearch(''); applyFilters(); toast('Filter auf Basis zurückgesetzt.'); });
@@ -1863,6 +1805,7 @@ async function boot() {
   P.preferred = P.preferred.filter(id => ST[id]); P.avoided = P.avoided.filter(id => ST[id]); if (P.home && !ST[P.home]) P.home = null;
   F.custom = F.custom.filter(l => LINE[l]);
   buildFilterUI(); bindUI(); syncFilterUI(); renderTrack(); renderCond();
+  renderShareButton(); $('#friendCount').textContent = SOCIAL.friends.length;
   registerGlyphs();
   map = new maplibregl.Map({ container: 'map', style: buildStyle(d), center: CENTER, zoom: 12, minZoom: 9, maxZoom: 17.5, maxBounds: BOUNDS,
     attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, fadeDuration: 150 });
@@ -1874,7 +1817,7 @@ async function boot() {
     $('#loading').remove();
     const ab = $('.maplibregl-ctrl-attrib'); if (ab) ab.classList.remove('maplibregl-compact-show');
     requestAnimationFrame(loop);
-    setInterval(() => { if (ROUTE.trip) tripTick(); if (openSheetId === 'panic') renderPanic(); if (cardRefresh) cardRefresh(); if (Loc.mode !== 'off') { if (Date.now() - (Loc.lastAnalyze || 0) > 1500) { Loc.lastAnalyze = Date.now(); if (Loc.buf.length) analyze(); } estimateTick(); } else renderTrack(); }, 1000);
+    setInterval(() => { if (ROUTE.trip) tripTick(); if (openSheetId === 'call') renderCall(); if (cardRefresh) cardRefresh(); if (Loc.mode !== 'off') { if (Date.now() - (Loc.lastAnalyze || 0) > 1500) { Loc.lastAnalyze = Date.now(); if (Loc.buf.length) analyze(); } estimateTick(); } else renderTrack(); }, 1000);
     setInterval(() => { renderCond(); updateZonesLayer(); if (P.style === 'auto' && wantedTheme() !== theme) applyTheme(); }, 30000);
     loadMonitoring();
     setInterval(loadMonitoring, 120000);

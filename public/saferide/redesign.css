@@ -17,7 +17,6 @@
   --r-lg: 28px;
   --r-md: 18px;
   --r-sm: 13px;
-  --tab-h: 164px;
 }
 
 :root[data-mode="dark"] {
@@ -30,6 +29,11 @@
   --focus: #64a8ff;
   --danger: #ff4d61;
   --shadow: 0 16px 40px rgba(0, 0, 0, .46), 0 2px 8px rgba(0, 0, 0, .32);
+}
+
+/* higher specificity than src/tokens.css, which Vite bundles after this file */
+html:root {
+  --tab-h: 266px;
 }
 
 body {
@@ -109,65 +113,14 @@ button {
   font-weight: 550;
 }
 
-.avatar {
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--hairline);
-  background: color-mix(in srgb, var(--surface) 93%, transparent);
-  color: var(--ink);
-  box-shadow: 0 8px 24px rgba(20, 24, 31, .10);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-}
 
-.top-filter {
-  width: 48px;
-  height: 48px;
-  flex: none;
-  border: 1px solid var(--hairline);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 93%, transparent);
-  color: var(--ink);
-  box-shadow: 0 8px 24px rgba(20, 24, 31, .10);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-}
 
-.top-filter svg {
-  width: 20px;
-  height: 20px;
-}
 
-.top-filter .dot {
-  border-color: var(--surface);
-}
 
-.cond {
-  min-width: 0;
-  height: 38px;
-  padding: 0 13px 0 10px;
-  border: 0;
-  border-radius: 19px;
-  background: color-mix(in srgb, var(--surface) 91%, transparent);
-  box-shadow: 0 6px 18px rgba(20, 24, 31, .09);
-  font-size: 13px;
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
-}
 
-.cond .w svg {
-  width: 18px;
-  height: 18px;
-}
 
-.cond .a .n {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  font-size: 11.5px;
-}
 
-/* Profile/preferences share the same compact rail as the map modes. */
+/* Compact rail for the map modes. */
 .moderail {
   display: flex;
   top: calc(var(--sa-t) + 76px);
@@ -182,35 +135,13 @@ button {
   backdrop-filter: blur(18px) saturate(150%);
 }
 
-.moderail .rail-settings {
-  position: relative;
-  height: 48px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid var(--hairline);
-  border-radius: 14px 14px 8px 8px;
-}
 
-.moderail .rail-settings svg {
-  width: 22px;
-  height: 22px;
-}
 
-.moderail .rail-settings::after {
-  content: "";
-  position: absolute;
-  right: 7px;
-  bottom: 7px;
-  width: 8px;
-  height: 8px;
-  border: 2px solid var(--surface);
-  border-radius: 50%;
-  background: var(--focus);
-}
 
 /* Calm status and two circular map actions above the home dock. */
 .track {
   left: 14px;
-  right: 166px;
+  right: 84px;
   bottom: calc(var(--tab-h) + var(--sa-b) + 12px);
 }
 
@@ -264,34 +195,11 @@ button {
   backdrop-filter: blur(18px) saturate(150%);
 }
 
-.panic {
-  width: 76px;
-  height: 76px;
-  min-width: 76px;
-  display: grid;
-  place-content: center;
-  gap: 0;
-  box-shadow: 0 10px 28px color-mix(in srgb, var(--danger) 34%, transparent);
-}
 
-.panic svg {
-  width: 28px;
-  height: 28px;
-}
 
-.panic span {
-  margin-top: 0;
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: .05em;
-}
 
-body.card-open .actions,
-body.trip-on .actions {
-  flex-direction: row;
-}
 
-/* Home dock: one prominent task and three quiet secondary actions. */
+/* Home dock: SOS first (hold to call, Way Out, report), then sharing and the tabs. */
 .tabs {
   left: 10px;
   right: 10px;
@@ -304,10 +212,172 @@ body.trip-on .actions {
   box-shadow: var(--shadow);
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: 66px 1fr;
-  gap: 5px;
+  grid-template-rows: auto 56px 1fr;
+  gap: 6px;
   -webkit-backdrop-filter: blur(22px) saturate(160%);
   backdrop-filter: blur(22px) saturate(160%);
+}
+
+.sos-dock {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tabs .sos-call {
+  --hold: 0;
+  flex-direction: row;
+  justify-content: flex-start;
+  grid-column: 1 / -1;
+  position: relative;
+  height: 64px;
+  padding: 0 16px 0 8px;
+  border: 0;
+  border-radius: 21px;
+  background: var(--danger);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* hold progress fills the button from the left */
+.tabs .sos-call::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, .22);
+  transform: scaleX(var(--hold));
+  transform-origin: left;
+  pointer-events: none;
+}
+
+.tabs .sos-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(#fff calc(var(--hold) * 360deg), rgba(255, 255, 255, .22) 0);
+}
+
+.tabs .sos-ring::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.tabs .sos-ring svg {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+
+.tabs .sos-copy {
+  position: relative;
+  display: grid;
+  line-height: 1.1;
+}
+
+.tabs .sos-copy strong {
+  font-size: 18px;
+  font-weight: 760;
+  letter-spacing: -.02em;
+}
+
+.tabs .sos-copy small {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, .78);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tabs .sos-tile {
+  flex-direction: row;
+  height: 58px;
+  border: 0;
+  border-radius: 19px;
+  background: var(--ink);
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 720;
+  letter-spacing: -.01em;
+}
+
+.tabs .sos-tile + .sos-tile {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.tabs .sos-tile svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tabs .sos-call:active,
+.tabs .sos-tile:active {
+  transform: scale(.985);
+}
+
+/* simulated call */
+.call-live {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 26px 16px 22px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--ok) 11%, var(--surface));
+  text-align: center;
+}
+
+.call-live .share-pulse {
+  margin-bottom: 10px;
+}
+
+.call-live strong {
+  font-size: 22px;
+  font-weight: 780;
+  letter-spacing: -.02em;
+}
+
+.call-live .timer {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.call-live.warn {
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+}
+
+.btn.hangup {
+  background: var(--danger);
+  color: #fff;
+}
+
+.call-110 {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.call-110 a {
+  color: var(--danger);
+  font-weight: 750;
 }
 
 .tabs button::before,
@@ -317,12 +387,12 @@ body.trip-on .actions {
 
 .tabs .trip-launch {
   width: 100%;
-  height: 66px;
-  padding: 0 14px 0 10px;
+  height: 56px;
+  padding: 0 14px 0 8px;
   border: 0;
-  border-radius: 21px;
-  background: var(--ink);
-  color: var(--surface);
+  border-radius: 19px;
+  background: var(--surface-2);
+  color: var(--ink);
   display: flex;
   flex-direction: row;
   justify-content: flex-start;
@@ -332,6 +402,7 @@ body.trip-on .actions {
 
 .tabs .share-launch.sharing {
   background: #176b49;
+  color: #fff;
 }
 
 .tabs .share-launch.sharing .trip-launch-icon {
@@ -355,11 +426,11 @@ body.trip-on .actions {
 .trip-launch-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   flex: none;
-  border-radius: 15px;
-  background: color-mix(in srgb, var(--surface) 14%, transparent);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .trip-launch-icon svg {
@@ -375,7 +446,7 @@ body.trip-on .actions {
 }
 
 .trip-launch-copy small {
-  color: color-mix(in srgb, var(--surface) 68%, transparent);
+  color: color-mix(in srgb, currentColor 62%, transparent);
   font-size: 11.5px;
   font-weight: 650;
 }
@@ -394,7 +465,7 @@ body.trip-on .actions {
   width: 20px !important;
   height: 20px !important;
   flex: none;
-  color: color-mix(in srgb, var(--surface) 66%, transparent);
+  color: color-mix(in srgb, currentColor 60%, transparent);
 }
 
 .tab-actions {
@@ -406,7 +477,7 @@ body.trip-on .actions {
 .tabs .tab-actions button {
   width: 100%;
   min-width: 0;
-  height: 61px;
+  height: 54px;
   padding: 5px 3px;
   border: 0;
   border-radius: 18px;
@@ -432,11 +503,6 @@ body.trip-on .actions {
   height: 21px;
 }
 
-.tabs .iconbtn .dot {
-  top: 8px;
-  right: calc(50% - 14px);
-  border-color: var(--surface);
-}
 
 .tabs .badgecount {
   top: 5px;
@@ -526,11 +592,6 @@ body.trip-on .actions {
   height: 38px;
 }
 
-.hdpanic {
-  width: 38px;
-  height: 38px;
-  box-shadow: none;
-}
 
 .field {
   min-height: 62px;
@@ -914,13 +975,7 @@ body.trip-on .actions {
   display: block;
 }
 
-/* One-tap non-urgent reporting. */
-.report-intro {
-  margin: -4px 0 0;
-  color: var(--muted);
-  font-size: 15px;
-}
-
+/* One-tap reporting: a tap sends, free text below. */
 .report-context {
   display: flex;
   align-items: center;
@@ -939,55 +994,108 @@ body.trip-on .actions {
   color: var(--focus);
 }
 
-.report-actions {
+.report-grid {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.report-action {
+.report-chip {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-  min-height: 74px;
-  padding: 10px 14px 10px 10px;
+  align-content: start;
+  justify-items: start;
+  gap: 2px;
+  min-height: 104px;
+  padding: 12px;
   border: 1px solid var(--hairline);
   border-radius: 20px;
   background: var(--surface);
+  color: var(--ink);
   text-align: left;
 }
 
-.report-action .report-icon {
+.report-chip:active {
+  transform: scale(.98);
+}
+
+.report-chip .report-icon {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 6px;
+  border-radius: 13px;
   background: var(--surface-2);
+}
+
+.report-chip.unsafe .report-icon {
+  background: color-mix(in srgb, var(--danger) 13%, var(--surface));
+  color: var(--danger);
+}
+
+.report-chip .report-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.report-chip strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.report-chip small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.report-text {
+  display: grid;
+  gap: 8px;
+}
+
+.report-text label {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.report-text textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--surface);
   color: var(--ink);
-  font-size: 22px;
-}
-
-.report-action strong,
-.report-action small {
-  display: block;
-}
-
-.report-action strong {
+  font: inherit;
   font-size: 16px;
+  resize: vertical;
 }
 
-.report-action small {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12.5px;
+.report-text textarea:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
 }
 
-.report-action .report-arrow {
-  width: 20px;
-  height: 20px;
-  color: var(--muted);
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.toast.has-action.on {
+  pointer-events: auto;
+}
+
+.toast.has-action button {
+  flex: none;
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper) 18%, transparent);
+  color: var(--paper);
+  font: inherit;
+  font-weight: 750;
 }
 
 .friend-detail-grid strong {
@@ -1005,13 +1113,14 @@ body.trip-on .actions {
 }
 
 @media (max-width: 370px) {
-  :root { --tab-h: 156px; }
-  .tabs { grid-template-rows: 63px 1fr; }
-  .tabs .trip-launch { height: 63px; }
-  .brandcopy span, .cond .w .tx { display: none; }
-  .track { right: 154px; }
+  html:root { --tab-h: 252px; }
+  .tabs .sos-call { height: 60px; }
+  .tabs .sos-tile { height: 54px; }
+  .tabs .trip-launch { height: 52px; }
+  .tabs { grid-template-rows: auto 52px 1fr; }
+  .brandcopy span { display: none; }
+  .track { right: 78px; }
   .round { width: 52px; height: 52px; min-width: 52px; }
-  .panic { width: 68px; height: 68px; min-width: 68px; }
 }
 
 @media (min-width: 720px) {
@@ -1044,7 +1153,6 @@ body.trip-on .actions {
 @media (prefers-reduced-motion: reduce) {
   .tabs button,
   .brand,
-  .avatar,
   .track button {
     transition: none;
   }
