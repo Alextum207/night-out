@@ -10,11 +10,11 @@ const browser = await chromium.launch({ channel: 'chrome', headless: !process.en
 // SEPARATE=1: every page gets its own browser profile, like separate phones (needs Supabase).
 const shared = process.env.SEPARATE ? null : await browser.newContext()
 const errors: string[] = []
-const open = async (hash: string, mobile = false) => {
+const open = async (hash: string, mobile = false, page = '/') => {
   const p = await (shared ?? (await browser.newContext())).newPage()
   if (mobile) await p.setViewportSize({ width: 390, height: 844 })
-  p.on('pageerror', (e) => errors.push(`${hash}: ${e.message}`))
-  await p.goto(`${BASE}/?room=${ROOM}${hash}`)
+  p.on('pageerror', (e) => errors.push(`${page}${hash}: ${e.message}`))
+  await p.goto(`${BASE}${page}?room=${ROOM}${hash}`)
   return p
 }
 const step = (s: string) => console.log(`✓ ${s}`)
@@ -139,6 +139,29 @@ try {
   const toSos = await walk(riders[0])
   assert.match(toSos.at(-1)!, /Notruf- und Infopunkt am Aufzug/)
   step(`Garching: platform -> emergency point: ${toSos.join(' → ')}`)
+
+  // --- SafeRide: shared reports (issue #19) ---
+  await control.getByRole('button', { name: /Arena/ }).click()
+  const srA = await open('', true, '/saferide.html'), srB = await open('', true, '/saferide.html')
+  for (const s of [srA, srB]) await s.locator('#loading').waitFor({ state: 'detached', timeout: 15000 })
+  await srA.locator('[data-tab="report"]').click()
+  await srA.locator('[data-rsize="large"]').click()
+  await srA.locator('[data-rint="aggressive"]').click()
+  await srA.locator('[data-rsend]').click()
+  await control.locator('path.sr-report').first().waitFor({ timeout: 3000 })
+  await srB.locator('[data-tab="alerts"]').click()
+  await srB.locator('[data-alert^="shared-me-"]').waitFor({ timeout: 3000 })
+  step('SafeRide report -> marker on control + alert on a second SafeRide phone')
+  await riders[0].getByText('Nächster Halt Münchner Freiheit').waitFor({ timeout: 3000 })
+  await riders[0].getByRole('button', { name: 'Way Out' }).click()
+  await srB.locator('[data-alert^="shared-4"]').waitFor({ timeout: 3000 }) // Way Out hotspot crowd (id = lat,lng)
+  step('Way Out tap -> alert on SafeRide')
+
+  await control.getByRole('button', { name: /Arena/ }).click()
+  await srB.locator('[data-alert^="shared-me-"]').waitFor({ state: 'detached', timeout: 3000 })
+  assert.equal(await control.locator('path.sr-report').count(), 0)
+  step('scenario reset clears shared reports')
+  await srA.close(); await srB.close()
 
   // --- Real trips (free mode, live MVG API) ---
   await control.getByRole('button', { name: /Szenario beenden/ }).click()

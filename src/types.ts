@@ -14,7 +14,21 @@ export type Stop = {
 }
 
 // A crowd on the rider's map. unsafe = reported drunk group / harassment, never a safe place to go.
-export type Crowd = { lat: number; lng: number; kind: 'busy' | 'unsafe'; label: string }
+export type Crowd = { lat: number; lng: number; kind: 'busy' | 'unsafe'; label: string; id?: string }
+
+// SafeRide report (group or panic pin), real time. Undo = same id with to <= now.
+export type Report = {
+  id: string
+  sessionId: string
+  lat: number
+  lng: number
+  size: 'small' | 'medium' | 'large' | null
+  intensity: 'loud' | 'aggressive' | 'harassing' | null
+  panic: boolean
+  title: string
+  from: number
+  to: number
+}
 
 export type Leg = {
   line: string // "U6"
@@ -95,5 +109,6 @@ export type Events = {
   demo: DemoPayload
   hello: { sessionId: string; trainKey: string | null }
   crowds: { crowds: Crowd[] } // control -> riders: reported groups for the rider's map and exit choice
+  report: Report // SafeRide -> control
 }
 export type EventName = keyof Events

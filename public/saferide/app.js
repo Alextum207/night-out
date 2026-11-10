@@ -84,6 +84,7 @@ const saveF = () => saveJSON(KEY_F, F), saveP = () => saveJSON(KEY_P, P);
 
 let LINES = [], LINE = {}, STATIONS = null, PD = [], ST = {}, STOPS_AT = {}, NEAR = {};
 let map = null, selected = null, theme = 'light', cardRefresh = null, openSheetId = null;
+let SHARED = []; // reports + Way Out hotspots from the control room (src/saferide-bridge.ts)
 let ALERTS = [], WEATHER = null, SOURCES = { mvg: 'loading', news: 'loading', weather: 'loading' }, alertsUpdated = null;
 let ROUTE = { from: null, to: null, mode: null, results: null, chosen: null, trip: null };
 
@@ -377,7 +378,7 @@ async function loadMonitoring() {
   SOURCES.news = news ? 'live' : (P.demo ? 'demo' : 'off');
   WEATHER = wx;
   const keepDemo = a => (a.kind === 'report') || (a.kind === 'news' && !news) || ((a.kind === 'disruption' || a.kind === 'construction') && !mvg);
-  ALERTS = [...demo.filter(keepDemo), ...(mvg || []), ...(news || []), ...MYREPORTS.filter(r => r.to > Date.now())];
+  ALERTS = [...demo.filter(keepDemo), ...(mvg || []), ...(news || []), ...MYREPORTS.filter(r => r.to > Date.now()), ...SHARED];
   alertsUpdated = Date.now();
   refreshAlertsEverywhere();
 }
@@ -1406,11 +1407,25 @@ function sendReport() {
   const p = myPosition() || map.getCenter().toArray(), near = nearestStation(p, 300);
   const sev = REP.intensity === 'harassing' || (REP.intensity === 'aggressive' && REP.size !== 'small') ? 3 : REP.intensity === 'aggressive' || REP.size === 'large' ? 2 : 1;
   const sizeTxt = { small: 'Small group', medium: 'Medium group', large: 'Large group' }[REP.size];
-  const r = { id: 'me-' + Date.now(), kind: 'report', sev, title: `${sizeTxt}, ${REP.intensity}`, body: near ? `Reported by you near ${near.name}.` : 'Reported by you.', at: p, r: 250,
+  const r = { id: 'me-' + Date.now(), kind: 'report', sev, size: REP.size, intensity: REP.intensity, title: `${sizeTxt}, ${REP.intensity}`, body: near ? `Reported by you near ${near.name}.` : 'Reported by you.', at: p, r: 250,
               from: Date.now(), to: Date.now() + 45 * 60000, source: 'Your report', mine: true };
-  MYREPORTS.push(r); saveJSON(KEY_R, MYREPORTS); ALERTS.push(r); REP = { size: null, intensity: null };
+  MYREPORTS.push(r); saveJSON(KEY_R, MYREPORTS); ALERTS.push(r); share(r); REP = { size: null, intensity: null };
   closeSheet(); refreshAlertsEverywhere(); toast('Report added. Safe routes now avoid this spot for 45 minutes.');
 }
+
+// ---------- sharing (window events, bridged to the Way Out channel by src/saferide-bridge.ts)
+function share(a) {
+  dispatchEvent(new CustomEvent('sr:report', { detail: { id: a.id, lat: a.at[1], lng: a.at[0], size: a.size || null, intensity: a.intensity || null,
+    panic: !!a.pin, title: a.title, from: a.from, to: a.to } }));
+}
+addEventListener('sr:crowds', e => {
+  const mine = new Set(MYREPORTS.map(r => r.id)), now = Date.now();
+  SHARED = e.detail.filter(c => !mine.has(c.id)).map(c => ({ id: 'shared-' + (c.id || `${c.lat},${c.lng}`), kind: 'report', sev: c.kind === 'unsafe' ? 3 : 2,
+    title: c.label, body: c.id ? 'Von einem anderen Fahrgast gemeldet.' : 'Way-Out-Meldung aus der Leitstelle.', at: [c.lng, c.lat], r: 250,
+    from: now, to: now + 45 * 60000, source: 'Leitstelle', shared: true }));
+  ALERTS = [...ALERTS.filter(a => !a.shared), ...SHARED];
+  if (map) refreshAlertsEverywhere(); // before boot: loadMonitoring picks SHARED up
+});
 
 // ---------- panic
 let panicCache = { key: null, html: '' }, PANIC_ALT = null, pinUndo = null;
@@ -1419,11 +1434,12 @@ function dropPin() {
   if (ALERTS.some(a => a.pin && activeNow(a) && metres(a.at, p) < 200)) return;
   const a = { id: 'pin-' + Date.now(), kind: 'report', sev: 3, title: 'Your panic pin', body: 'Dropped when you opened Panic Mode. Only on this phone until reports sync in Phase 2.', at: p, r: 220,
               from: Date.now(), to: Date.now() + 15 * 60000, source: 'Your panic pin', mine: true, pin: true };
-  ALERTS.push(a); MYREPORTS.push(a); saveJSON(KEY_R, MYREPORTS); pinUndo = { id: a.id, until: Date.now() + 8000 }; panicCache.key = null;
+  ALERTS.push(a); MYREPORTS.push(a); saveJSON(KEY_R, MYREPORTS); share(a); pinUndo = { id: a.id, until: Date.now() + 8000 }; panicCache.key = null;
   refreshAlertsEverywhere();
 }
 function undoPin() {
   if (!pinUndo) return; const id = pinUndo.id; pinUndo = null;
+  const gone = MYREPORTS.find(a => a.id === id); if (gone) share({ ...gone, to: Date.now() });
   ALERTS = ALERTS.filter(a => a.id !== id); MYREPORTS = MYREPORTS.filter(a => a.id !== id); saveJSON(KEY_R, MYREPORTS); panicCache.key = null;
   refreshAlertsEverywhere(); renderPanic(); toast('Panic pin removed.');
 }

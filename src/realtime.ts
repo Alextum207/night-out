@@ -26,7 +26,7 @@ if (transport === 'supabase') {
   const subscribe = () => {
     ready = false
     channel = client.channel(topic, { config: { broadcast: { self: false } } })
-    for (const e of ['tap', 'fine', 'action', 'demo', 'hello', 'crowds'] as EventName[]) {
+    for (const e of ['tap', 'fine', 'action', 'demo', 'hello', 'crowds', 'report'] as EventName[]) {
       channel.on('broadcast', { event: e }, (m) => deliver(e, m.payload as Envelope<EventName>))
     }
     channel.subscribe((status) => {
