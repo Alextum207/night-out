@@ -1000,14 +1000,13 @@ function openSheet(id) {
   closeCard();
   $$('.sheet.open').forEach(s => { if (s.id !== 'sheet-picker') s.classList.remove('open'); });
   const s = $('#sheet-' + id); if (!s) return;
-  ({ route: renderRouteSheet, share: renderShareSheet, friends: renderFriends, alerts: renderAlerts, report: renderReport, profile: renderProfile, call: renderCall, track: renderTrackSheet }[id] || (() => {}))();
+  ({ route: renderRouteSheet, share: renderShareSheet, friends: renderFriends, alerts: renderAlerts, report: renderReport, profile: renderProfile, staff: renderStaffRequest, track: renderTrackSheet }[id] || (() => {}))();
   s.classList.add('open'); s.querySelector('.body').scrollTop = 0; $('#scrim').classList.add('on');
   openSheetId = id; document.body.classList.add('sheet-open'); setTab(TAB_OF[id] || 'map');
   setTimeout(() => { const f = s.querySelector('[data-close]'); if (f) f.focus({ preventScroll: true }); }, 60);
 }
 function closeSheet() {
   $$('.sheet.open').forEach(s => { s.classList.remove('open'); s.style.transform = ''; });
-  if (openSheetId === 'call') endCall();
   $('#scrim').classList.remove('on'); openSheetId = null; setTab('map'); document.body.classList.remove('sheet-open', 'picker-open'); setCardH();
 }
 function setTab(t) { $$('.tabs button').forEach(b => b.dataset.tab === t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')); }
@@ -1262,30 +1261,19 @@ function whenText(a) {
 }
 
 // ---------- alerts sheet
-let alertFilter = 'all';
 function renderAlerts() {
   const b = $('#alertsBody'); if (!b) return;
   $('#aMeta').textContent = alertsUpdated ? tt('Aktualisiert {t}', { t: clock(alertsUpdated) }) : '';
   const now = Date.now();
   const list = ALERTS.filter(a => a.to > now && a.from < now + 18 * 3600e3).sort((x, y) => (activeNow(y) - activeNow(x)) || (y.sev - x.sev) || (y.from - x.from));
-  const groups = [['all', tt('Alle')], ['report', tt('Meldungen')], ['disruption', tt('Verkehr')], ['construction', tt('Baustellen')], ['news', tt('News')]];
-  const count = k => k === 'all' ? list.length : list.filter(a => a.kind === k).length;
-  const shown = alertFilter === 'all' ? list : list.filter(a => a.kind === alertFilter);
-  const homeLines = P.home && ST[P.home] ? new Set(ST[P.home].lines) : null;
-  const w = WEATHER, night = w && (now > w.sunset || mzHour() < 6);
-  const wxLine = w ? (w.raining ? (w.rainUntil ? tt('Regen bis etwa {t}.', { t: clock(w.rainUntil) }) : tt('Regen.')) + ' ' + tt('Bahnhöfe und Unterführungen werden voller, darum halten sichere Routen Fußwege kurz.') : (night ? tt('Dunkel seit {t}. Sichere Routen bevorzugen gut besuchte Haltestellen.', { t: clock(w.sunset) }) : tt('Dunkel ab {t}.', { t: clock(w.sunset) }))) : '';
-  const anyDemo = list.some(a => a.demo) || (w && !w.live && !w.unknown);
+  const anyDemo = list.some(a => a.demo);
   b.innerHTML = `
-    ${w && !w.unknown ? `<div class="wx"><div class="big">${wxIcon(w.kind, night)}${w.temp}°</div><div class="t1">${esc(tt(w.text))}, ${tt('Wind')} ${w.wind} km/h</div><div class="t2">${esc(wxLine)}${w.live ? '' : ` <span class="tag demo">${tt('Demo-Daten')}</span>`}</div></div>` : ''}
-    <div class="chiprow scroll" role="group" aria-label="${tt('Hinweise filtern')}">${groups.map(([k, l]) => `<button class="chip plain" type="button" data-afilter="${k}" aria-pressed="${alertFilter === k}">${l} <span style="opacity:.7">${count(k)}</span></button>`).join('')}</div>
-    <div class="alist">${shown.length ? shown.map(a => {
-      const mine = homeLines && ((a.lines || []).some(l => homeLines.has(l)) || (a.stations || []).some(n => { const s = stationByName(n); return s && s.lines.some(l => homeLines.has(l)); }));
-      return `<button class="al" type="button" data-alert="${esc(a.id)}" style="--sevc:${SEV_COLOR[a.sev]}">
+    <div class="alist">${list.length ? list.map(a => `<button class="al" type="button" data-alert="${esc(a.id)}" style="--sevc:${SEV_COLOR[a.sev]}">
         <div class="top1">${ICON[a.kind].replace('<svg', '<svg class="i"')}${tt(KIND[a.kind].label)}<span class="when">${whenText(a)}</span></div>
-        <div class="tt">${esc(tt(a.title))}</div>${a.body ? `<div class="bd">${esc(tt(a.body))}</div>` : ''}
-        <div class="ft">${(a.lines || []).filter(l => LINE[l]).slice(0, 7).map(l => badge(l, 'xs')).join('')}${!activeNow(a) ? `<span class="tag later">${tt('Später heute')}</span>` : ''}${mine ? `<span class="tag mine">${tt('Auf deinem Heimweg')}</span>` : ''}
-          <span class="src">${a.demo ? `<span class="tag demo">${tt('Demo-Daten')}</span>` : esc(tt(a.source))}</span></div></button>`; }).join('') : `<p class="note">${tt('Gerade nichts zu melden.')}</p>`}</div>
-    ${anyDemo ? `<div class="banner">${ICON.info}<span>${tt('Einträge mit „Demo-Daten“ sind Beispiele. Live-MVG-Meldungen, News und Wetter laden, wenn SafeRide unter seiner eigenen Adresse läuft.')}</span></div>` : ''}`;
+        <div class="tt">${esc(tt(a.title))}</div>
+        <div class="ft">${(a.lines || []).filter(l => LINE[l]).slice(0, 7).map(l => badge(l, 'xs')).join('')}${!activeNow(a) ? `<span class="tag later">${tt('Später heute')}</span>` : ''}
+          <span class="src">${a.demo ? `<span class="tag demo">${tt('Demo-Daten')}</span>` : a.source && a.source !== a.title ? esc(tt(a.source)) : ''}</span></div></button>`).join('') : `<p class="note">${tt('Gerade nichts zu melden.')}</p>`}</div>
+    ${anyDemo ? `<div class="banner">${ICON.info}<span>${tt('Einträge mit „Demo-Daten“ sind Beispiele. Live-MVG-Meldungen und News laden, wenn SafeRide unter seiner eigenen Adresse läuft.')}</span></div>` : ''}`;
 }
 
 // ---------- route sheet + card
@@ -1521,7 +1509,7 @@ function renderReport() {
       <textarea id="reportText" rows="3" maxlength="280" placeholder="${esc(tt('Was ist passiert? z. B. Mann belästigt Fahrgäste im letzten Wagen'))}"></textarea>
       <button class="btn primary block" type="submit">${tt('Meldung senden')}</button>
     </form>
-    <p class="note">${tt('Ein Tipp genügt: Ort und Fahrkontext kommen automatisch dazu. Die Meldung geht anonym an die Leitstelle. Akute Gefahr? Halte Stationssicherheit gedrückt oder ruf 110 an.')}</p>`;
+    <p class="note">${tt('Ein Tipp genügt: Ort und Fahrkontext kommen automatisch dazu. Die Meldung geht anonym an die Leitstelle. Akute Gefahr? Informiere sofort das Stationspersonal oder ruf 110 an.')}</p>`;
 }
 function sendReport(kind, text = null) {
   const cfg = REPORT_TYPES[kind]; if (!cfg) return;
@@ -1556,7 +1544,7 @@ addEventListener('sr:crowds', e => {
   if (map) refreshAlertsEverywhere(); // before boot: loadMonitoring picks SHARED up
 });
 
-// ---------- SOS dock: hold to call station security, Way Out, report
+// ---------- SOS dock: notify station staff, Way Out, report
 // The control-room scenario train (Way Out): one marker with the line badge; the map flies there when the scenario starts.
 let trainMarker = null, mapReady = false, pendingTrain;
 function placeTrain(tr) {
@@ -1569,9 +1557,9 @@ function placeTrain(tr) {
 addEventListener('sr:train', e => { if (mapReady) placeTrain(e.detail); else pendingTrain = e.detail; });
 let pinUndo = null;
 // Emergency pin to the control room. Returns the pin id, or null when nothing was sent (no position, or a pin is already active here).
-function dropPin(title, body) {
-  const p = myPosition(); if (!p) return null;
-  if (ALERTS.some(a => a.pin && activeNow(a) && metres(a.at, p) < 200)) return null;
+function dropPin(title, body, position = myPosition()) {
+  const p = position; if (!p) return null;
+  if (ALERTS.some(a => a.pin && a.title === title && activeNow(a) && metres(a.at, p) < 200)) return null;
   const a = { id: 'pin-' + Date.now(), kind: 'report', sev: 3, title, body, at: p, r: 220,
               from: Date.now(), to: Date.now() + 15 * 60000, source: title, mine: true, pin: true };
   ALERTS.push(a); MYREPORTS.push(a); saveJSON(KEY_R, MYREPORTS); share(a); pinUndo = { id: a.id, until: Date.now() + 8000 };
@@ -1579,46 +1567,25 @@ function dropPin(title, body) {
   return a.id;
 }
 
-// Press and hold: a ring fills; letting go early cancels. Keyboard: hold Enter or Space.
-const HOLD_MS = 1500;
-function bindHold(btn, done) {
-  let raf = 0, timer = 0, t0 = 0; // the timer decides, the frame loop only draws the ring
-  const set = v => btn.style.setProperty('--hold', v.toFixed(3));
-  const draw = now => { set(Math.min(1, (now - t0) / HOLD_MS)); raf = requestAnimationFrame(draw); };
-  const reset = () => { clearTimeout(timer); cancelAnimationFrame(raf); timer = raf = 0; set(0); };
-  const stop = () => { if (!timer) return; reset(); toast(tt('Gedrückt halten zum Anrufen'), 1600); };
-  const start = () => { if (timer) return; t0 = performance.now(); raf = requestAnimationFrame(draw); timer = setTimeout(() => { reset(); buzz([60]); done(); }, HOLD_MS); };
-  btn.addEventListener('pointerdown', e => { e.preventDefault(); try { btn.setPointerCapture(e.pointerId); } catch (x) {} start(); });
-  for (const ev of ['pointerup', 'pointercancel']) btn.addEventListener(ev, stop);
-  btn.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); start(); } });
-  btn.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' ') stop(); });
-  btn.addEventListener('contextmenu', e => e.preventDefault());
+// One tap dispatches a high-priority request to the control room. This is a demo,
+// but it behaves like a silent digital alert rather than pretending to be a call.
+let STAFF_REQUEST = null;
+function requestStationStaff() {
+  const exact = myPosition(), p = exact || map.getCenter().toArray();
+  const id = dropPin(N('Stationspersonal angefordert'), N('Sofortige Unterstützung angefordert. Standort und Fahrkontext wurden übermittelt.'), p);
+  STAFF_REQUEST = { at: Date.now(), sent: !!id, located: !!exact };
+  buzz([60]); openSheet('staff');
 }
-
-// Simulated call: no real phone call; the control room gets a pin with location and ride context.
-let CALL = null;
-function startCall() {
-  const id = dropPin(N('Anruf Stationssicherheit'), N('Simulierter Anruf aus SafeRide, mit Standort und Fahrkontext.'));
-  CALL = { at: Date.now(), sent: !!id, located: !!myPosition() };
-  openSheet('call');
-}
-function endCall() { if (!CALL) return; CALL = null; toast(tt('Anruf beendet. Die Leitstelle sieht deinen Standort noch 15 Minuten.'), 3800); }
-function renderCall() {
-  const b = $('#callBody'); if (!b || !CALL) return;
-  if (b.dataset.call !== String(CALL.at)) { // skeleton once per call, then only the live parts update (the buttons stay put)
-    b.dataset.call = CALL.at;
-    b.innerHTML = `<div class="call-live ${CALL.located ? '' : 'warn'}"><span class="share-pulse" aria-hidden="true"></span><strong id="callState"></strong><span class="timer" id="callTimer"></span></div>
-      <div class="share-context" id="callCtx"></div>
-      <p class="note" style="margin:0">${esc(!CALL.located ? tt('Ohne Standort: Sag am Telefon, wo du bist.') : CALL.sent ? tt('Die Leitstelle sieht deinen Standort und Fahrkontext.') : tt('Dein Standort ist schon bei der Leitstelle.'))}</p>
-      <button class="btn block hangup" type="button" data-close>${tt('Auflegen')}</button>
-      <p class="call-110">${tt('Akute Gefahr?')} <a href="tel:110">${tt('110 anrufen')}</a></p>`;
-  }
-  const s = Math.floor((Date.now() - CALL.at) / 1000), c = currentShareContext();
-  setHTML($('#callState'), s < 2 ? tt('Verbinde…') : tt('Verbunden mit Stationssicherheit'));
-  setHTML($('#callTimer'), `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')} · ${tt('Simulation')}`);
+function renderStaffRequest() {
+  const b = $('#staffBody'); if (!b || !STAFF_REQUEST) return;
+  const c = currentShareContext();
   const where = c.line ? `${badge(c.line, 'lg')}<span><small>${tt('Mitgesendet')}</small><strong>${esc(tt('{line} Richtung {to}', { line: c.line, to: c.direction }))}</strong></span>`
     : `<span class="friend-avatar" style="--friend-color:var(--focus)">${tt('Du')}</span><span><small>${tt('Mitgesendet')}</small><strong>${esc(c.next)}</strong></span>`;
-  setHTML($('#callCtx'), `<div class="share-context-main">${where}</div><div class="share-meta-grid"><div><small>${tt('Nächster Halt')}</small><strong>${esc(c.next)}</strong></div><div><small>${tt('Dort in')}</small><strong>${c.eta > 0 ? tt('{n} Min', { n: c.eta }) : tt('jetzt')}</strong></div></div>`);
+  b.innerHTML = `<div class="staff-live" role="status" aria-live="assertive"><span class="staff-check" aria-hidden="true">${ICON.shield}</span><strong>${tt('Personal ist informiert')}</strong><span>${tt('Die Leitstelle reagiert sofort.')}</span></div>
+    <div class="share-context"><div class="share-context-main">${where}</div><div class="share-meta-grid"><div><small>${tt('Nächster Halt')}</small><strong>${esc(c.next)}</strong></div><div><small>${tt('Dort in')}</small><strong>${c.eta > 0 ? tt('{n} Min', { n: c.eta }) : tt('jetzt')}</strong></div></div></div>
+    <p class="note" style="margin:0">${tt(STAFF_REQUEST.located ? 'Standort und Fahrkontext wurden übermittelt. Bleib, wenn möglich, an einem gut sichtbaren Ort.' : 'Dein genauer Standort fehlt. Die Kartenposition wurde gesendet. Geh, wenn möglich, zu Personal oder einer Notrufsäule.')}</p>
+    <button class="btn primary block" type="button" data-close>${tt('Verstanden')}</button>
+    <p class="staff-110">${tt('Akute Gefahr?')} <a href="tel:110">${tt('110 anrufen')}</a></p>`;
 }
 
 // Way Out: the station the simulated U3 ride is at (or arrives at next). Münchner Freiheit has a real indoor graph, every other station a mock one.
@@ -1647,7 +1614,7 @@ function renderProfile() {
   const seg = (attr, cur, opts, label) => `<div class="seg wide" role="group" aria-label="${esc(label)}">${opts.map(([k, l]) => `<button type="button" data-${attr}="${k}" aria-pressed="${cur === k}">${l}</button>`).join('')}</div>`;
   b.innerHTML = `<div class="group"><h3>${tt('Sprache')}</h3>${seg('lang', window.SR_LANG, [['en', 'English'], ['de', 'Deutsch']], tt('Sprache'))}</div>
     <div class="group"><h3>${tt('Darstellung')}</h3>${seg('style', P.style, [['auto', tt('Auto')], ['light', tt('Hell')], ['dark', tt('Dunkel')]], tt('Darstellung'))}<p>${tt('Auto wechselt von 20:00 bis 06:00 auf dunkel.')}</p></div>
-    <p class="note">${tt('SafeRide ist ein Prototyp: Fahrt, Freunde, Anruf und Way Out sind simuliert.')}</p>`;
+    <p class="note">${tt('SafeRide ist ein Prototyp: Fahrt, Freunde, Personal-Hilfe und Way Out sind simuliert.')}</p>`;
 }
 
 // ---------- mode rail
@@ -1704,7 +1671,6 @@ function bindUI() {
     if (d.rmode) { ROUTE.mode = d.rmode; renderRouteSheet(); return; }
     if (d.ropt) { closeSheet(); routeCard(d.ropt); return; }
     // alerts
-    if (d.afilter) { alertFilter = d.afilter; renderAlerts(); return; }
     if (d.alert) { const a = ALERTS.find(x => x.id === d.alert); closeSheet(); if (!a) return;
       const z = alertZones().filter(q => q.id === a.id); const cl = closures().filter(c => c.alert === a.id);
       if (z.length) map.flyTo({ center: [z[0].lng, z[0].lat], zoom: 14, duration: reduced() ? 0 : 900 });
@@ -1723,7 +1689,7 @@ function bindUI() {
     if (d.iam) { const [line, to] = d.iam.split('|'); Loc.override = { line, to, at: Date.now() }; analyze(); toast(tt('Alles klar: {line} Richtung {to}.', { line, to })); return; }
   });
   $('#btnShare').addEventListener('click', beginSharing);
-  bindHold($('#btnCall'), startCall);
+  $('#btnStaff').addEventListener('click', requestStationStaff);
   $('#btnWayOut').addEventListener('click', startWayOut);
   $('#btnReport').addEventListener('click', () => openSheet('report'));
   document.addEventListener('submit', e => {
@@ -1767,7 +1733,7 @@ async function boot() {
     $('#loading').remove();
     const ab = $('.maplibregl-ctrl-attrib'); if (ab) ab.classList.remove('maplibregl-compact-show');
     requestAnimationFrame(loop);
-    setInterval(() => { if (ROUTE.trip) tripTick(); if (openSheetId === 'call') renderCall(); if (cardRefresh) cardRefresh(); if (Loc.mode !== 'off') { if (Date.now() - (Loc.lastAnalyze || 0) > 1500) { Loc.lastAnalyze = Date.now(); if (Loc.buf.length) analyze(); } estimateTick(); } else renderTrack(); }, 1000);
+    setInterval(() => { if (ROUTE.trip) tripTick(); if (cardRefresh) cardRefresh(); if (Loc.mode !== 'off') { if (Date.now() - (Loc.lastAnalyze || 0) > 1500) { Loc.lastAnalyze = Date.now(); if (Loc.buf.length) analyze(); } estimateTick(); } else renderTrack(); }, 1000);
     setInterval(() => { renderCond(); updateZonesLayer(); if (P.style === 'auto' && wantedTheme() !== theme) applyTheme(); }, 30000);
     loadMonitoring();
     setInterval(loadMonitoring, 120000);

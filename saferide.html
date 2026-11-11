@@ -53,9 +53,9 @@
 
   <nav class="tabs" aria-label="SafeRide">
     <div class="sos-dock">
-      <button class="sos-call" id="btnCall" type="button" aria-label="Stationssicherheit anrufen: 1,5 Sekunden gedrückt halten">
-        <span class="sos-ring" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg></span>
-        <span class="sos-copy"><strong>Stationssicherheit</strong><small>Gedrückt halten zum Anrufen</small></span>
+      <button class="sos-call" id="btnStaff" type="button" aria-label="Stationspersonal sofort informieren">
+        <span class="sos-ring" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-3 7.4-7 9-4-1.6-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+        <span class="sos-copy"><strong>Stationspersonal</strong><small>Einmal tippen · sofort Hilfe anfordern</small></span>
       </button>
       <button class="sos-tile" id="btnWayOut" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 4v16"/></svg><span>Way Out</span></button>
       <button class="sos-tile" id="btnReport" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg><span>Melden</span></button>
@@ -119,11 +119,11 @@
     <div class="body" id="trackBody"></div>
   </section>
 
-  <!-- Call (simulated station security call) -->
-  <section class="sheet" id="sheet-call" role="dialog" aria-modal="true" aria-labelledby="cTitle">
+  <!-- Immediate station staff dispatch -->
+  <section class="sheet" id="sheet-staff" role="dialog" aria-modal="true" aria-labelledby="staffTitle">
     <div class="handle"></div>
-    <header><h2 id="cTitle">Stationssicherheit</h2><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
-    <div class="body" id="callBody"></div>
+    <header><h2 id="staffTitle">Hilfe angefordert</h2><button class="closebtn" type="button" data-close aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <div class="body" id="staffBody"></div>
   </section>
 
   <!-- Station picker (stacked above other sheets) -->

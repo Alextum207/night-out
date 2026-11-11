@@ -167,7 +167,7 @@ button {
 
 
 
-/* Home dock: SOS first (hold to call, Way Out, report), then sharing and the tabs. */
+/* Home dock: immediate staff alert, Way Out, report, then sharing and tabs. */
 .tabs {
   left: 10px;
   right: 10px;
@@ -193,7 +193,6 @@ button {
 }
 
 .tabs .sos-call {
-  --hold: 0;
   flex-direction: row;
   justify-content: flex-start;
   grid-column: 1 / -1;
@@ -209,21 +208,8 @@ button {
   gap: 12px;
   text-align: left;
   overflow: hidden;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-
-/* hold progress fills the button from the left */
-.tabs .sos-call::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, .22);
-  transform: scaleX(var(--hold));
-  transform-origin: left;
-  pointer-events: none;
 }
 
 .tabs .sos-ring {
@@ -234,15 +220,7 @@ button {
   height: 48px;
   flex: none;
   border-radius: 50%;
-  background: conic-gradient(#fff calc(var(--hold) * 360deg), rgba(255, 255, 255, .22) 0);
-}
-
-.tabs .sos-ring::before {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border-radius: 50%;
-  background: var(--danger);
+  background: rgba(255, 255, 255, .18);
 }
 
 .tabs .sos-ring svg {
@@ -301,8 +279,8 @@ button {
   transform: scale(.985);
 }
 
-/* simulated call */
-.call-live {
+/* immediate station staff dispatch */
+.staff-live {
   display: grid;
   justify-items: center;
   gap: 6px;
@@ -312,38 +290,40 @@ button {
   text-align: center;
 }
 
-.call-live .share-pulse {
+.staff-check {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
   margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
 }
 
-.call-live strong {
+.staff-check svg {
+  width: 28px;
+  height: 28px;
+}
+
+.staff-live strong {
   font-size: 22px;
   font-weight: 780;
   letter-spacing: -.02em;
 }
 
-.call-live .timer {
-  font-variant-numeric: tabular-nums;
+.staff-live > span:last-child {
   color: var(--muted);
   font-weight: 650;
 }
 
-.call-live.warn {
-  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
-}
-
-.btn.hangup {
-  background: var(--danger);
-  color: #fff;
-}
-
-.call-110 {
+.staff-110 {
   text-align: center;
   color: var(--muted);
   font-size: 14px;
 }
 
-.call-110 a {
+.staff-110 a {
   color: var(--danger);
   font-weight: 750;
 }
@@ -620,7 +600,9 @@ button {
 
 /* Social location layer -------------------------------------------------- */
 .friend-marker {
-  position: relative;
+  /* MapLibre positions marker elements from the map origin. Relative positioning
+     adds a layout offset that becomes visible while zooming. */
+  position: absolute;
   display: grid;
   place-items: center;
   width: 42px;
@@ -652,7 +634,6 @@ button {
 }
 
 .friend-marker.selected {
-  transform: scale(1.12);
   box-shadow: 0 7px 22px rgba(13, 18, 28, .32), 0 0 0 8px color-mix(in srgb, var(--friend-color, #6655d8) 24%, transparent);
 }
 
