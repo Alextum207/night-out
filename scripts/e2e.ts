@@ -168,6 +168,27 @@ try {
   await srA.waitForTimeout(400)
   assert.ok(await markerAnchorError() < 0.5)
   step('friend markers stay anchored to map coordinates while zooming')
+  await srA.locator('[data-tab="friends"]').click()
+  assert.deepEqual(await srA.locator('.friend-detail-head .friend-avatar').evaluate((el) => {
+    const s = getComputedStyle(el)
+    return { display: s.display, placeItems: s.placeItems, marginTop: s.marginTop }
+  }), { display: 'grid', placeItems: 'center', marginTop: '0px' })
+  await srA.locator('#sheet-friends [data-close]').click()
+  step('friend profile initial stays centered in its avatar')
+
+  await srA.setViewportSize({ width: 1200, height: 900 })
+  const stationPoint = await srA.evaluate(() => {
+    const app = (window as any).__sr, station = Object.values(app.ST).find((s: any) => s.name === 'Odeonsplatz') as any
+    app.map.jumpTo({ center: [station.lng, station.lat], zoom: 16 })
+    return app.map.project([station.lng, station.lat])
+  })
+  await srA.locator('#map').click({ position: stationPoint })
+  await srA.locator('#card.open').waitFor()
+  const desktopCard = await srA.locator('#card').boundingBox()
+  assert.ok(desktopCard && Math.abs(desktopCard.x + desktopCard.width / 2 - 600) < 1)
+  await srA.locator('#card [data-cardclose]').click()
+  await srA.setViewportSize({ width: 390, height: 844 })
+  step('station detail card stays centered on desktop and mobile keeps its bottom-card layout')
   assert.equal(await srA.locator('#btnStaff strong').innerText(), 'Station staff')
   assert.deepEqual(await srA.locator('.tab-actions button > span:first-of-type').allInnerTexts(), ['Friends', 'Alerts', 'Settings'])
   step('home: SOS dock (Station staff, Way Out, Report) + tabs Friends / Alerts / Settings, in English')

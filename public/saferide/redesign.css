@@ -885,17 +885,17 @@ button {
   min-width: 0;
 }
 
-.friend-detail-head strong,
-.friend-detail-head span,
-.friend-detail-head small {
+.friend-detail-head > span:last-child strong,
+.friend-detail-head > span:last-child span,
+.friend-detail-head > span:last-child small {
   display: block;
 }
 
-.friend-detail-head strong {
+.friend-detail-head > span:last-child strong {
   font-size: 19px;
 }
 
-.friend-detail-head span {
+.friend-detail-head > span:last-child span {
   margin-top: 2px;
   font-weight: 650;
 }
@@ -1072,6 +1072,13 @@ button {
 }
 
 @media (min-width: 720px) {
+  .card {
+    left: 50%;
+    right: auto;
+    width: min(480px, calc(100% - 40px));
+    transform: translateX(-50%);
+  }
+
   .tabs {
     left: 50%;
     right: auto;
